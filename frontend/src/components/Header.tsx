@@ -17,7 +17,7 @@ export function Header({ firstName, historyOpen, onToggleHistory }: HeaderProps)
         <button
           type="button"
           onClick={onToggleHistory}
-          className="h-9 shrink-0 rounded-xl border border-[#D1D5DB] bg-white px-3 text-[13px] font-medium text-ink transition-colors hover:bg-soft"
+          className="h-9 shrink-0 rounded-xl bg-brand px-3 text-[13px] font-medium text-white transition-colors hover:bg-brand-hover"
         >
           {historyOpen ? 'Назад' : 'История'}
         </button>

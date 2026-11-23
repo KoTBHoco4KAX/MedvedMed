@@ -400,6 +400,18 @@ func TestExertionalDyspneaIsNotEmergency(t *testing.T) {
 	}
 }
 
+func TestDyspneaWithNormalRestIsNotEmergency(t *testing.T) {
+	if hit, found := detectEmergency("Дышу нормально в покое, одышка только при нагрузке", 40); found {
+		t.Fatalf("нормальное дыхание в покое не должно быть экстренным флагом: %s", hit.Title)
+	}
+	if _, found := detectEmergency("Нет одышки в покое, одышка только при нагрузке", 40); found {
+		t.Fatal("отрицание одышки в покое не должно давать красный флаг")
+	}
+	if _, found := detectEmergency("Одышка в покое", 40); !found {
+		t.Fatal("одышка в покое должна оставаться красным флагом")
+	}
+}
+
 // Убедимся, что обычные фразы не дают ложных срабатываний.
 func TestNoFalsePositiveOnPlainText(t *testing.T) {
 	plain := []string{

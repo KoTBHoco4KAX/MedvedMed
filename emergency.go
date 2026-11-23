@@ -131,8 +131,8 @@ func detectEmergency(text string, age int, childMode ...bool) (*emergencyHit, bo
 	}
 	for i := range emergencyRules {
 		if emergencyRules[i].matches(normalized, age, isChild) {
-			// Одышка только при нагрузке — не экстренный признак, если нет одышки в покое.
-			if emergencyRules[i].ID == "dyspnea" && mildExertionalDyspnea(normalized) {
+			// Одышка только при нагрузке — не экстренный признак, если в покое дыхание нормальное.
+			if emergencyRules[i].ID == "dyspnea" && (dyspneaExcluded(normalized) || mildExertionalDyspnea(normalized)) {
 				continue
 			}
 			return &emergencyHit{
@@ -143,6 +143,21 @@ func detectEmergency(text string, age int, childMode ...bool) (*emergencyHit, bo
 		}
 	}
 	return nil, false
+}
+
+// dyspneaExcluded — явные формулировки, что в покое дыхание нормальное.
+func dyspneaExcluded(text string) bool {
+	for _, phrase := range []string{
+		"дышу нормально",
+		"нормально в покое",
+		"только при нагрузке",
+		"нет одышки в покое",
+	} {
+		if strings.Contains(text, phrase) {
+			return true
+		}
+	}
+	return false
 }
 
 // mildExertionalDyspnea отличает «одышку при нагрузке» от удушья/одышки в покое.

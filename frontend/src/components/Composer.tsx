@@ -10,8 +10,8 @@ type ComposerProps = {
 
 export function Composer({ options, allowFreeText, pending, onAnswer }: ComposerProps) {
   const [text, setText] = useState('')
-  // Две колонки — только для коротких кнопок; длинные формулировки идут в одну колонку и переносятся.
-  const grid = options.length > 4 && options.every((option) => option.length <= 16)
+  // Компактная сетка для коротких/средних подписей; очень длинные варианты остаются в одну колонку.
+  const grid = options.length > 4 && options.every((option) => option.length <= 32)
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -28,8 +28,9 @@ export function Composer({ options, allowFreeText, pending, onAnswer }: Composer
     >
       {options.length > 0 && (
         <div className={grid ? 'mb-2.5 grid grid-cols-2 gap-2' : 'mb-2.5 flex flex-col gap-2'}>
-          {options.map((option) => {
+          {options.map((option, index) => {
             const emoji = optionEmoji(option)
+            const fullRow = grid && options.length % 2 === 1 && index === options.length - 1
             return (
               <button
                 key={option}
@@ -39,18 +40,16 @@ export function Composer({ options, allowFreeText, pending, onAnswer }: Composer
                   setText('')
                   onAnswer(option)
                 }}
-                className={`flex min-w-0 items-center gap-1.5 rounded-xl bg-brand text-left text-white transition-colors hover:bg-brand-hover disabled:opacity-60 ${
-                  grid ? 'h-11 px-3 text-[14px]' : 'min-h-11 px-4 py-2.5 text-[15px] leading-snug'
-                }`}
+                className={`flex min-h-11 min-w-0 items-center gap-1.5 rounded-xl bg-brand px-3 py-2.5 text-left leading-snug text-white transition-colors hover:bg-brand-hover disabled:opacity-60 ${
+                  grid ? 'text-[14px]' : 'px-4 text-[15px]'
+                } ${fullRow ? 'col-span-2' : ''}`}
               >
                 {emoji !== '' && (
                   <span aria-hidden className="shrink-0">
                     {emoji}
                   </span>
                 )}
-                <span className={`min-w-0 font-medium ${grid ? 'truncate' : 'whitespace-normal break-words'}`}>
-                  {option}
-                </span>
+                <span className="min-w-0 font-medium whitespace-normal break-words">{option}</span>
               </button>
             )
           })}
