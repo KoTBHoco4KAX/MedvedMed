@@ -1,0 +1,12 @@
+.env
+*.db
+*.db-shm
+*.db-wal
+frontend/node_modules
+frontend/dist
+server
+server.exe
+medbot-server
+medbot-server.exe
+medved-triage
+medved-triage.exe
