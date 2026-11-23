@@ -126,7 +126,7 @@ function HistorySection({ title, text }: { title: string; text: string }) {
   return (
     <section>
       <h3 className="text-[13px] font-semibold text-ink">{title}</h3>
-      <p className="mt-1.5 text-[13px] leading-relaxed text-[#374151]">{text}</p>
+      <p className="mt-1.5 whitespace-pre-line text-[13px] leading-relaxed text-[#374151]">{text}</p>
     </section>
   )
 }

@@ -64,7 +64,7 @@ func TestDetectEmergencyNegative(t *testing.T) {
 func TestEmergencyMessageHasInstruction(t *testing.T) {
 	message := emergencyMessage(&emergencyHit{
 		Title:  "боль в груди",
-		Reason: "может быть признаком инфаркта",
+		Reason: "требует быстрой проверки врача",
 	})
 	for _, want := range []string{"Вызовите скорую помощь (103 или 112)", "не ждите окончания опроса"} {
 		if !containsAny(message, want) {
@@ -90,8 +90,8 @@ func TestRadiatingPainEmergencyFullSequence(t *testing.T) {
 	if !found {
 		t.Fatal("последовательность должна давать красный флаг ОКС")
 	}
-	if !strings.Contains(hit.Reason, "коронар") {
-		t.Fatalf("пояснение не про коронарный синдром: %q", hit.Reason)
+	if !strings.Contains(hit.Reason, "экстренной") {
+		t.Fatalf("пояснение не про экстренную помощь: %q", hit.Reason)
 	}
 	if hit.Title == "" || hit.ID != "acs_radiating" {
 		t.Fatalf("неверный красный флаг: %+v", hit)
@@ -397,6 +397,12 @@ func TestExertionalDyspneaIsNotEmergency(t *testing.T) {
 	}
 	if _, found := detectEmergency("Одышка в покое", 40); !found {
 		t.Fatal("одышка в покое должна оставаться красным флагом")
+	}
+}
+
+func TestSoreThroatIsNotAnaphylaxis(t *testing.T) {
+	if hit, found := detectEmergency("першит и больно глотать", 30); found {
+		t.Fatalf("обычная боль в горле не должна давать анафилаксию: %s", hit.Title)
 	}
 }
 

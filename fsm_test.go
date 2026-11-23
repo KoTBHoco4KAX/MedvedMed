@@ -441,8 +441,8 @@ func TestRadiatingPainStopsSurveyAtSuddenOnset(t *testing.T) {
 	if !state.IsEmergency || state.Step != stepEmergency {
 		t.Fatalf("ожидался красный флаг на шаге давности, получено %+v", state)
 	}
-	if !strings.Contains(state.EmergencyReason, "коронар") {
-		t.Fatalf("причина не про ОКС: %q", state.EmergencyReason)
+	if !strings.Contains(state.EmergencyReason, "экстренной") {
+		t.Fatalf("причина не про экстренную помощь: %q", state.EmergencyReason)
 	}
 	if state.CanGoBack {
 		t.Fatal("после красного флага возврат запрещён")
@@ -490,8 +490,8 @@ func TestAdditionalSymptomTriggersEmergency(t *testing.T) {
 	if !state.IsEmergency {
 		t.Fatalf("дыхание + иррадиация должны давать красный флаг: %+v", state)
 	}
-	if !strings.Contains(state.EmergencyReason, "коронар") {
-		t.Fatalf("причина не про ОКС: %q", state.EmergencyReason)
+	if !strings.Contains(state.EmergencyReason, "экстренной") {
+		t.Fatalf("причина не про экстренную помощь: %q", state.EmergencyReason)
 	}
 }
 
@@ -1742,6 +1742,81 @@ func TestAdditionalAndChronicMultiSelect(t *testing.T) {
 	}
 	if !containsPair(sess.answerPairs(), "Хронические заболевания", "Гипертония / ССЗ, Диабет") {
 		t.Fatalf("мультивыбор хронических не попал в историю: %+v", sess.answerPairs())
+	}
+}
+
+func TestBackInMultiSelectTrimsMessages(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "multi-back-messages.db"))
+	if err != nil {
+		t.Fatalf("openStore: %v", err)
+	}
+	defer st.close()
+
+	a := &app{store: st}
+	sess, err := st.createSession("u-multi-back", "Тест", 30, 1)
+	if err != nil {
+		t.Fatalf("createSession: %v", err)
+	}
+
+	var state chatState
+	for _, answer := range []string{
+		"Понятно, начать опрос",
+		"Боль",
+		"Голова",
+		"Ноющая / тупая, нарастала постепенно",
+		"1–3 дня",
+		"Умеренно",
+	} {
+		state, err = a.answer(context.Background(), sess, answer)
+		if err != nil {
+			t.Fatalf("answer(%q): %v", answer, err)
+		}
+	}
+	if state.Step != stepAdditionalSymptoms {
+		t.Fatalf("ожидался additional_symptoms, получено %q", state.Step)
+	}
+
+	if _, err := a.answer(context.Background(), sess, "Дыхание"); err != nil {
+		t.Fatalf("answer(Дыхание): %v", err)
+	}
+	before := len(sess.Messages)
+	state, err = a.back(sess)
+	if err != nil {
+		t.Fatalf("back в additional_symptoms: %v", err)
+	}
+	if state.Step != stepAdditionalSymptoms {
+		t.Fatalf("ожидался additional_symptoms после back, получено %q", state.Step)
+	}
+	if len(sess.Messages) != before-2 {
+		t.Fatalf("после back должно исчезнуть 2 сообщения: было %d, стало %d", before, len(sess.Messages))
+	}
+	for _, message := range sess.Messages {
+		if message.Role == "user" && message.Text == "Дыхание" {
+			t.Fatal("отменённый ответ «Дыхание» остался в ленте")
+		}
+	}
+
+	if _, err := a.answer(context.Background(), sess, additionalNone); err != nil {
+		t.Fatalf("answer(additionalNone): %v", err)
+	}
+	if _, err := a.answer(context.Background(), sess, "Гипертония / ССЗ"); err != nil {
+		t.Fatalf("answer(Гипертония): %v", err)
+	}
+	before = len(sess.Messages)
+	state, err = a.back(sess)
+	if err != nil {
+		t.Fatalf("back в chronic: %v", err)
+	}
+	if state.Step != stepChronic {
+		t.Fatalf("ожидался chronic после back, получено %q", state.Step)
+	}
+	if len(sess.Messages) != before-2 {
+		t.Fatalf("после back в chronic должно исчезнуть 2 сообщения: было %d, стало %d", before, len(sess.Messages))
+	}
+	for _, message := range sess.Messages {
+		if message.Role == "user" && message.Text == "Гипертония / ССЗ" {
+			t.Fatal("отменённый ответ «Гипертония / ССЗ» остался в ленте")
+		}
 	}
 }
 

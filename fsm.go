@@ -1308,11 +1308,24 @@ func (a *app) backInMultiSelect(sess *chatSession, step string) (chatState, erro
 	}
 
 	sess.CurrentStep = step
+	sess.Messages = trimLastMultiSelectExchange(sess.Messages, step)
 	if err := a.store.saveSession(sess); err != nil {
 		log.Printf("chat: сохранить сессию при возврате: %v", err)
 		return chatState{}, newAPIError(500, "Не удалось сохранить состояние опроса.")
 	}
 	return sess.state(), nil
+}
+
+// trimLastMultiSelectExchange убирает хвост «вопрос бота + ответ пользователя»
+// текущего шага мультивыбора, чтобы отменённый пузырь не оставался в ленте.
+func trimLastMultiSelectExchange(messages []chatMessage, step string) []chatMessage {
+	if n := len(messages); n > 0 && messages[n-1].Role == "bot" && messages[n-1].Step == step {
+		messages = messages[:n-1]
+	}
+	if n := len(messages); n > 0 && messages[n-1].Role == "user" && messages[n-1].Step == step {
+		messages = messages[:n-1]
+	}
+	return messages
 }
 
 // backInHabits отменяет последнюю выбранную привычку и остаётся в цикле.
