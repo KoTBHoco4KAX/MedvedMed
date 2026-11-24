@@ -91,6 +91,49 @@ pnpm dev
 
 Vite поднимается на http://127.0.0.1:5173 и проксирует `/api` на `http://127.0.0.1:8080`.
 
+## Запуск в Docker
+
+Требуются Docker Engine и Docker Compose v2.
+
+Фронтенд и Go-бинарник собираются внутри образа, отдельно запускать `pnpm build` не нужно.
+
+1. Создайте `.env` в корне проекта. Compose читает его через `env_file`, поэтому файл должен существовать:
+
+   ```env
+   PORT=8080
+   DEV_MODE=true
+   DEEPSEEK_API_KEY=ваш_ключ
+   CORE_URL=
+   CORE_SERVICE_TOKEN=
+   ```
+
+   Для работы через MAX Core укажите `DEV_MODE=false`, `CORE_URL` и `CORE_SERVICE_TOKEN`.
+
+2. Соберите и запустите контейнер:
+
+   ```powershell
+   docker compose build
+   docker compose up -d
+   ```
+
+3. Откройте http://127.0.0.1:8080.
+
+Полезные команды:
+
+```powershell
+docker compose ps                 # статус
+docker compose logs -f medbot     # логи
+docker compose down               # остановить и удалить контейнер
+```
+
+Данные SQLite лежат в `./data/medbot.db` на хосте: эта папка подключена к `/app/data` и переживает перезапуск контейнера. Путь задаётся в `docker-compose.yml` через `DB_PATH=/app/data/medbot.db`.
+
+После изменения кода или зависимостей пересоберите образ:
+
+```powershell
+docker compose up -d --build
+```
+
 ## API
 
 ### Авторизация
