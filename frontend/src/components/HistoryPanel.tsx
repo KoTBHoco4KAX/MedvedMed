@@ -88,7 +88,7 @@ export function HistoryPanel({ items, error, onRetry }: HistoryPanelProps) {
                         <div className="my-3 h-px bg-line" aria-hidden />
                         <HistorySection title="По оплате (ОМС/ДМС/платно)" text={item.card.paymentNote} />
                         <div className="my-3 h-px bg-line" aria-hidden />
-                        <HistorySection title="Что подготовить к приёму" text={item.card.preparationTips} />
+                        <HistorySection title="Что делать и что подготовить" text={item.card.preparationTips} />
 
                         {answers.length > 0 && (
                           <div className="mt-4">

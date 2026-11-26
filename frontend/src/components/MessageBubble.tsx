@@ -14,7 +14,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   }
 
   return (
-    <div className="max-w-[88%] rounded-xl bg-white px-4 py-3 text-[15px] leading-relaxed text-ink">
+    <div className="max-w-[88%] rounded-xl bg-white px-4 py-3 text-[15px] leading-relaxed whitespace-pre-line text-ink">
       {message.text}
     </div>
   )

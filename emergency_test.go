@@ -90,8 +90,8 @@ func TestRadiatingPainEmergencyFullSequence(t *testing.T) {
 	if !found {
 		t.Fatal("последовательность должна давать красный флаг ОКС")
 	}
-	if !strings.Contains(hit.Reason, "экстренной") {
-		t.Fatalf("пояснение не про экстренную помощь: %q", hit.Reason)
+	if !strings.Contains(hit.Reason, "Что делать до приезда скорой:") {
+		t.Fatalf("в причине нет инструкции до приезда скорой: %q", hit.Reason)
 	}
 	if hit.Title == "" || hit.ID != "acs_radiating" {
 		t.Fatalf("неверный красный флаг: %+v", hit)
@@ -239,6 +239,11 @@ func TestFuzzyTyposTriggerEmergency(t *testing.T) {
 	}{
 		{"одышпка", "одышпка", 30},
 		{"грудб с болью", "сильно болит грудб", 40},
+		{"давыт в грыди", "давыт в грыди", 40},
+		{"болит за грыдиной", "болит за грыдиной", 40},
+		{"упал в обмопоке", "упал в обмопоке", 30},
+		{"резкая боль в жывоте", "резкая боль в жывоте", 35},
+		{"ударился головой и тошнит", "ударился головой и тошнит", 30},
 	}
 
 	for _, tc := range cases {
@@ -317,7 +322,6 @@ func TestExpandedSynonyms(t *testing.T) {
 		{"кровохарканье", "кровохарканье", 50},
 		{"отек квинке", "отек квинке, трудно глотать", 40},
 		{"пропало зрение", "внезапно пропало зрение на один глаз", 60},
-		{"падение с высоты", "упал с высоты", 30},
 	}
 
 	for _, tc := range cases {
@@ -326,6 +330,99 @@ func TestExpandedSynonyms(t *testing.T) {
 				t.Fatalf("detectEmergency(%q) = false, ожидался красный флаг", tc.text)
 			}
 		})
+	}
+}
+
+func TestOptionRedFlagsAreBoundToButtons(t *testing.T) {
+	cases := []struct {
+		name      string
+		step      string
+		option    string
+		category  string
+		location  string
+		childAge  string
+		wantID    string
+		wantFound bool
+	}{
+		{"кнопка груди", stepComplaintLocation, "Грудная клетка", "", "", "", "chest", true},
+		{"кнопка сердца", stepComplaintLocation, "Сердце / область сердца", "", "", "", "chest", true},
+		{"одышка в покое", stepSymptomCharacter, "В покое тоже", "Дыхание", "Одышка при нагрузке", "", "dyspnea", true},
+		{"одышка только при нагрузке", stepSymptomCharacter, "Только при нагрузке", "Дыхание", "Одышка при нагрузке", "", "", false},
+		{"кровь в стуле", stepSymptomCharacter, "Кровь в стуле", "ЖКТ", "Диарея", "", "bleeding", true},
+		{"потеря сознания", stepSymptomCharacter, "Потеря сознания", "Травма", "Удар по голове", "", "syncope", true},
+		{"тошнота после удара головой", stepSymptomCharacter, "Тошнота / рвота", "Травма", "Удар по голове", "", "head_trauma_context", true},
+		{"живот, резкая боль", stepSymptomCharacter, "Резкая, острая / схваткообразная", "ЖКТ", "Боль / тяжесть в животе", "", "acute_abdomen", true},
+		{"высокая температура у ребёнка", stepComplaintLocation, "Выше 39,5 °C", "Температура", "", "7 лет", "child_fever", true},
+		{"высокая температура у взрослого", stepComplaintLocation, "Выше 39,5 °C", "Температура", "", "", "", false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sess := &chatSession{
+				Age: 30,
+				Sex: 1,
+				Answers: map[string]string{
+					stepComplaintCategory: tc.category,
+					stepComplaintLocation: tc.location,
+				},
+			}
+			if tc.childAge != "" {
+				sess.Answers[stepChildAge] = tc.childAge
+			}
+			hit := optionRedFlagHit(sess, tc.step, tc.option)
+			if (hit != nil) != tc.wantFound {
+				t.Fatalf("optionRedFlagHit(%q) = %+v, ожидалось found=%v", tc.option, hit, tc.wantFound)
+			}
+			if hit != nil && hit.ID != tc.wantID {
+				t.Fatalf("получен флаг %q, ожидался %q", hit.ID, tc.wantID)
+			}
+		})
+	}
+}
+
+func TestNewCharacterOptionsTriggerContextRedFlags(t *testing.T) {
+	cases := []struct {
+		name      string
+		category  string
+		location  string
+		character string
+		wantID    string
+	}{
+		{"одышка в покое", "Дыхание", "Одышка при нагрузке", "В покое тоже", "dyspnea"},
+		{"кровотечение", "Травма", "Порез или рана", "Кровотечение не останавливается", "bleeding"},
+		{"нарушение речи", "Головокружение, онемение, сон", "Онемение или покалывание", "С нарушением речи", "stroke"},
+		{"травма головы", "Травма", "Удар по голове", "Тошнота / рвота", "head_trauma_context"},
+		{"острый живот", "ЖКТ", "Боль / тяжесть в животе", "Резкая, острая / схваткообразная", "acute_abdomen"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sess := &chatSession{
+				Age: 30,
+				Sex: 1,
+				Answers: map[string]string{
+					stepComplaintCategory: tc.category,
+					stepComplaintLocation: tc.location,
+					stepSymptomCharacter:  tc.character,
+				},
+			}
+			hit, found := detectComplaintEmergency(sess)
+			if !found || hit == nil {
+				t.Fatalf("для %q/%q не сработал красный флаг", tc.location, tc.character)
+			}
+			if hit.ID != tc.wantID {
+				t.Fatalf("получен флаг %q, ожидался %q", hit.ID, tc.wantID)
+			}
+		})
+	}
+}
+
+func TestFallFromHeightWithoutSequelaeIsNotEmergency(t *testing.T) {
+	if _, found := detectEmergency("упал с высоты, болит нога", 30); found {
+		t.Fatal("падение с высоты без травмы головы и последствий не должно давать красный флаг")
+	}
+	if _, found := detectEmergency("упал с высоты, потерял сознание", 30); !found {
+		t.Fatal("падение с высоты с потерей сознания должно давать красный флаг")
 	}
 }
 
@@ -388,6 +485,27 @@ func TestChildModeFeverFlag(t *testing.T) {
 					tc.text, tc.age, tc.child, found, tc.want)
 			}
 		})
+	}
+}
+
+func TestEmergencyReasonsHaveSpecificActions(t *testing.T) {
+	for _, rule := range emergencyRules {
+		if !strings.Contains(rule.Reason, "Что делать до приезда скорой:") {
+			t.Fatalf("в причине %q нет блока действий", rule.ID)
+		}
+		if strings.Contains(rule.Reason, "инфаркт") || strings.Contains(rule.Reason, "хирургическая катастрофа") {
+			t.Fatalf("в причине %q остался диагноз", rule.ID)
+		}
+	}
+}
+
+func TestEmergencyMessageDoesNotDuplicateFoodBan(t *testing.T) {
+	message := emergencyMessage(&emergencyHit{
+		Title:  "боль в груди",
+		Reason: emergencyReason("Боль в груди важно проверить врачу.", actionChest),
+	})
+	if count := strings.Count(message, "не ешьте и не пейте"); count != 1 {
+		t.Fatalf("общий запрет еды/питья задублирован (%d раз):\n%s", count, message)
 	}
 }
 

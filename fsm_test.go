@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -75,10 +76,15 @@ func TestStepOptionsMatchSpec(t *testing.T) {
 		}
 	}
 
-	// meds_status — единственный из новых шагов без свободного ввода.
-	meds, _ := findStep(steps, stepMedsStatus)
-	if meds.AllowFreeText {
-		t.Fatal("на шаге meds_status не должно быть свободного ввода")
+	// Шаги с готовыми вариантами, где свободный ввод не нужен.
+	for _, id := range []string{stepMedsStatus, stepAllergies, stepHospitalizations, stepHeredity} {
+		spec, ok := findStep(steps, id)
+		if !ok {
+			t.Fatalf("шаг %q не найден", id)
+		}
+		if spec.AllowFreeText {
+			t.Fatalf("на шаге %s не должно быть свободного ввода", id)
+		}
 	}
 }
 
@@ -234,7 +240,7 @@ func TestAnswerPairs(t *testing.T) {
 			stepDisclaimer:         "Понятно, начать опрос",
 			stepComplaintCategory:  "Боль",
 			stepComplaintLocation:  "Голова",
-			stepSymptomCharacter:   "Тяжесть / давящая боль после сна, усталости или стресса",
+			stepSymptomCharacter:   "Тяжесть / давящая боль",
 			stepComplaintDuration:  "1–3 дня",
 			stepComplaintSeverity:  "Умеренно",
 			stepAdditionalSymptoms: additionalNone,
@@ -255,7 +261,7 @@ func TestAnswerPairs(t *testing.T) {
 	if pairs[0].Question != "Начало опроса" || pairs[1].Question != "Основная жалоба" {
 		t.Fatalf("порядок вопросов нарушен: %+v", pairs)
 	}
-	if !containsPair(pairs, "Характер симптома", "Тяжесть / давящая боль после сна, усталости или стресса") {
+	if !containsPair(pairs, "Характер симптома", "Тяжесть / давящая боль") {
 		t.Fatalf("нет пары про характер симптома: %+v", pairs)
 	}
 	if !containsPair(pairs, "Насколько сильно выражено", "Умеренно") {
@@ -308,7 +314,7 @@ func TestDynamicRouteSkipsMedsDetails(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 		additionalNone,
@@ -424,7 +430,7 @@ func TestRadiatingPainStopsSurveyAtSuddenOnset(t *testing.T) {
 		t.Fatalf("createSession: %v", err)
 	}
 
-	for _, answer := range []string{"Понятно, начать опрос", "Боль", "ключица левая", "Ноющая / тупая, нарастала постепенно"} {
+	for _, answer := range []string{"Понятно, начать опрос", "Боль", "ключица левая", "Ноющая / тупая"} {
 		if _, err := a.answer(context.Background(), sess, answer); err != nil {
 			t.Fatalf("answer(%q): %v", answer, err)
 		}
@@ -441,8 +447,8 @@ func TestRadiatingPainStopsSurveyAtSuddenOnset(t *testing.T) {
 	if !state.IsEmergency || state.Step != stepEmergency {
 		t.Fatalf("ожидался красный флаг на шаге давности, получено %+v", state)
 	}
-	if !strings.Contains(state.EmergencyReason, "экстренной") {
-		t.Fatalf("причина не про экстренную помощь: %q", state.EmergencyReason)
+	if !strings.Contains(state.EmergencyReason, "Что делать до приезда скорой:") {
+		t.Fatalf("причина без инструкции до приезда скорой: %q", state.EmergencyReason)
 	}
 	if state.CanGoBack {
 		t.Fatal("после красного флага возврат запрещён")
@@ -470,7 +476,7 @@ func TestAdditionalSymptomTriggersEmergency(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"левое плечо",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 	} {
@@ -490,8 +496,8 @@ func TestAdditionalSymptomTriggersEmergency(t *testing.T) {
 	if !state.IsEmergency {
 		t.Fatalf("дыхание + иррадиация должны давать красный флаг: %+v", state)
 	}
-	if !strings.Contains(state.EmergencyReason, "экстренной") {
-		t.Fatalf("причина не про экстренную помощь: %q", state.EmergencyReason)
+	if !strings.Contains(state.EmergencyReason, "Что делать до приезда скорой:") {
+		t.Fatalf("причина без инструкции до приезда скорой: %q", state.EmergencyReason)
 	}
 }
 
@@ -512,7 +518,7 @@ func TestNoEmergencyForNonRadiatingPain(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Тяжесть / давящая боль после сна, усталости или стресса",
+		"Тяжесть / давящая боль",
 		"1–3 дня",
 		severityStrong,
 		additionalNone,
@@ -526,6 +532,21 @@ func TestNoEmergencyForNonRadiatingPain(t *testing.T) {
 	}
 	if sess.CurrentStep != stepChronic {
 		t.Fatalf("после сопутствующих симптомов ожидался chronic, получено %q", sess.CurrentStep)
+	}
+}
+
+func TestChatStateIncludesSex(t *testing.T) {
+	sess := &chatSession{
+		ID:          "token",
+		Age:         30,
+		Sex:         2,
+		CurrentStep: stepDisclaimer,
+		History:     []string{},
+		Answers:     map[string]string{},
+		Messages:    []chatMessage{},
+	}
+	if state := sess.state(); state.Sex != 2 {
+		t.Fatalf("в ChatState должен передаваться пол из Core: %+v", state)
 	}
 }
 
@@ -623,7 +644,7 @@ func TestAllergiesFlowOpensDetails(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 		additionalNone,
@@ -856,7 +877,7 @@ func setupHabitsSession(t *testing.T) (*app, *store, *chatSession) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 		additionalNone,
@@ -890,8 +911,8 @@ func TestDisclaimerChildModeRoute(t *testing.T) {
 	}
 
 	childSteps := stepsFor(1, 35, map[string]string{stepDisclaimer: disclaimerChildOption})
-	if len(childSteps) != 16 {
-		t.Fatalf("всего шагов в детском режиме %d, ожидалось 16", len(childSteps))
+	if len(childSteps) != 15 {
+		t.Fatalf("всего шагов в детском режиме без возраста %d, ожидалось 15", len(childSteps))
 	}
 	if childSteps[1].ID != stepChildAge {
 		t.Fatalf("после дисклеймера ожидался child_age, получено %q", childSteps[1].ID)
@@ -907,7 +928,7 @@ func TestDisclaimerChildModeRoute(t *testing.T) {
 	// Беременность в детском профиле не спрашиваем.
 	femaleChild := stepsFor(2, 30, map[string]string{
 		stepDisclaimer: disclaimerChildOption,
-		stepChildAge:   "4–12 лет",
+		stepChildAge:   "4–11 лет",
 	})
 	if _, ok := findStep(femaleChild, stepPregnancy); ok {
 		t.Fatal("в режиме за ребёнка шаг pregnancy не нужен")
@@ -934,15 +955,15 @@ func TestChildModeFlowAndBack(t *testing.T) {
 	if state.Step != stepChildAge {
 		t.Fatalf("ожидался child_age, получено %q", state.Step)
 	}
-	if !state.IsChild || state.Progress.Total != 16 {
+	if !state.IsChild || state.Progress.Total != 15 {
 		t.Fatalf("детский режим в состоянии: %+v", state)
 	}
 
-	state, err = a.answer(context.Background(), sess, "4–12 лет")
+	state, err = a.answer(context.Background(), sess, "4–11 лет")
 	if err != nil {
 		t.Fatalf("answer(child age): %v", err)
 	}
-	if state.Step != stepComplaintCategory || !state.IsChild || state.ChildAge != "4–12 лет" {
+	if state.Step != stepComplaintCategory || !state.IsChild || state.ChildAge != "4–11 лет" {
 		t.Fatalf("после возраста ребёнка: %+v", state)
 	}
 
@@ -985,7 +1006,7 @@ func TestChildFeverRedFlagFlow(t *testing.T) {
 		t.Fatalf("createSession: %v", err)
 	}
 
-	for _, answer := range []string{disclaimerChildOption, "4–12 лет"} {
+	for _, answer := range []string{disclaimerChildOption, "4–11 лет"} {
 		if _, err := a.answer(context.Background(), sess, answer); err != nil {
 			t.Fatalf("answer(%q): %v", answer, err)
 		}
@@ -998,7 +1019,7 @@ func TestChildFeverRedFlagFlow(t *testing.T) {
 	if !state.IsEmergency {
 		t.Fatalf("температура 40 у ребёнка должна давать красный флаг: %+v", state)
 	}
-	if !strings.Contains(state.EmergencyReason, "Температура выше 39,5") {
+	if !strings.Contains(state.EmergencyReason, "39,5") {
 		t.Fatalf("причина не про температуру ребёнка: %q", state.EmergencyReason)
 	}
 }
@@ -1032,7 +1053,7 @@ func TestAllergyHistoryDoesNotTriggerEmergency(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 		additionalNone,
@@ -1118,13 +1139,13 @@ func TestTemperatureRouteSkipsSeverity(t *testing.T) {
 }
 
 func TestChildHighFeverButtonTriggersEmergency(t *testing.T) {
-	option := "Выше 39.5 °C (39,8 °C)"
+	option := "Выше 39,5 °C"
 
 	if _, found := detectEmergency(option, 40); found {
 		t.Fatal("на взрослом аккаунте кнопка высокой температуры не должна давать красный флаг")
 	}
 	if _, found := detectEmergency(option, 40, true); !found {
-		t.Fatal("в детском режиме кнопка «Выше 39.5 °C» должна распознаваться как гипертермия")
+		t.Fatal("в детском режиме кнопка «Выше 39,5 °C» должна распознаваться как гипертермия")
 	}
 	if _, found := detectEmergency("39.0–39.5 °C", 40, true); found {
 		t.Fatal("диапазон 39.0–39.5 °C не должен давать красный флаг")
@@ -1143,7 +1164,7 @@ func TestChildHighFeverButtonTriggersEmergency(t *testing.T) {
 	}
 
 	var state chatState
-	for _, answer := range []string{disclaimerChildOption, "4–12 лет", "Температура", option} {
+	for _, answer := range []string{disclaimerChildOption, "4–11 лет", "Температура", option} {
 		state, err = a.answer(context.Background(), sess, answer)
 		if err != nil {
 			t.Fatalf("answer(%q): %v", answer, err)
@@ -1152,8 +1173,46 @@ func TestChildHighFeverButtonTriggersEmergency(t *testing.T) {
 	if !state.IsEmergency || state.Step != stepEmergency {
 		t.Fatalf("ожидался красный флаг гипертермии, получено %+v", state)
 	}
-	if !strings.Contains(state.EmergencyReason, "Температура выше 39,5") {
+	if !strings.Contains(state.EmergencyReason, "39,5") {
 		t.Fatalf("причина не про температуру ребёнка: %q", state.EmergencyReason)
+	}
+}
+
+func TestSymptomCharacterOptionsFollowLocation(t *testing.T) {
+	cases := []struct {
+		category string
+		location string
+	}{
+		{"Дыхание", "Кашель"},
+		{"Дыхание", "Заложенность носа / насморк"},
+		{"Кожа", "Сыпь"},
+		{"Кожа", "Зуд или покраснение"},
+		{"ЖКТ", "Диарея"},
+		{"ЖКТ", "Запор или вздутие"},
+		{"Травма", "Ушиб"},
+		{"Травма", "Порез или рана"},
+		{"Головокружение, онемение, сон", "Головокружение"},
+		{"Головокружение, онемение, сон", "Онемение или покалывание"},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.category+"/"+tc.location, func(t *testing.T) {
+			steps := stepsFor(1, 30, map[string]string{
+				stepComplaintCategory: tc.category,
+				stepComplaintLocation: tc.location,
+			})
+			spec, ok := findStep(steps, stepSymptomCharacter)
+			if !ok {
+				t.Fatal("шаг symptom_character не найден")
+			}
+			want := symptomCharacterByLocation[tc.location]
+			if strings.Join(spec.Options, "|") != strings.Join(want, "|") {
+				t.Fatalf("для %q: %v, ожидались %v", tc.location, spec.Options, want)
+			}
+			if strings.Join(spec.Options, "|") == strings.Join(symptomCharacterOptions(tc.category), "|") {
+				t.Fatalf("для %q остались общие кнопки категории: %v", tc.location, spec.Options)
+			}
+		})
 	}
 }
 
@@ -1179,7 +1238,7 @@ func TestSymptomCharacterOptionsByCategory(t *testing.T) {
 			if !ok {
 				t.Fatal("шаг symptom_character не найден")
 			}
-			if spec.Question != "Какой характер у симптома и что его провоцирует?" {
+			if spec.Question != "Какой характер у симптома?" {
 				t.Fatalf("вопрос шага: %q", spec.Question)
 			}
 			if strings.Join(spec.Options, "|") != strings.Join(tc.want, "|") {
@@ -1205,11 +1264,11 @@ func TestSymptomCharacterOptionsByCategory(t *testing.T) {
 	}
 }
 
-// Тяжесть/«чугунная» голова после сна — бытовое недомогание, а не повод для 103.
+// Тяжесть/«чугунная» голова — бытовое недомогание, а не повод для 103.
 func TestHeavyHeadAfterSleepIsNotEmergency(t *testing.T) {
-	character := "Тяжесть / давящая боль после сна, усталости или стресса"
+	character := "Тяжесть / давящая боль"
 	if _, found := detectEmergency(character, 30); found {
-		t.Fatal("описание тяжести после сна не должно быть красным флагом")
+		t.Fatal("описание тяжести не должно быть красным флагом")
 	}
 
 	st, err := openStore(filepath.Join(t.TempDir(), "heavy-head.db"))
@@ -1257,7 +1316,7 @@ func TestAIClarificationRoute(t *testing.T) {
 	answers := map[string]string{
 		stepComplaintCategory: "Боль",
 		stepComplaintLocation: "Голова",
-		stepSymptomCharacter:  "Тяжесть / давящая боль после сна, усталости или стресса",
+		stepSymptomCharacter:  "Тяжесть / давящая боль",
 		stepComplaintDuration: durationToday,
 		stepComplaintSeverity: "Умеренно",
 		aiClarificationKey:    marker,
@@ -1300,7 +1359,7 @@ func TestAIClarificationAnswerAdvances(t *testing.T) {
 	sess.Answers = map[string]string{
 		stepComplaintCategory: "Боль",
 		stepComplaintLocation: "Голова",
-		stepSymptomCharacter:  "Тяжесть / давящая боль после сна, усталости или стресса",
+		stepSymptomCharacter:  "Тяжесть / давящая боль",
 		stepComplaintDuration: durationToday,
 		stepComplaintSeverity: "Умеренно",
 		aiClarificationKey:    clarificationJSON(t, "Когда возникла тяжесть?", []string{"После сна", "После стресса", "Постоянно"}),
@@ -1347,7 +1406,7 @@ func TestAIClarificationSkippedWithoutMarker(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 	} {
@@ -1367,7 +1426,7 @@ func TestBackAndProgressWithClarificationAndPregnancy(t *testing.T) {
 		stepDisclaimer:        disclaimerStartOption,
 		stepComplaintCategory: "Боль",
 		stepComplaintLocation: "Голова",
-		stepSymptomCharacter:  "Тяжесть / давящая боль после сна, усталости или стресса",
+		stepSymptomCharacter:  "Тяжесть / давящая боль",
 		stepComplaintDuration: durationToday,
 		stepComplaintSeverity: "Умеренно",
 		aiClarificationKey:    marker,
@@ -1499,23 +1558,25 @@ func TestChestLocationTriggersEmergency(t *testing.T) {
 	defer st.close()
 
 	a := &app{store: st}
-	sess, err := st.createSession("u-chest", "Тест", 40, 1)
-	if err != nil {
-		t.Fatalf("createSession: %v", err)
-	}
-
-	var state chatState
-	for _, answer := range []string{"Понятно, начать опрос", "Боль", "Грудь / грудная клетка"} {
-		state, err = a.answer(context.Background(), sess, answer)
+	for index, location := range []string{"Грудная клетка", "Сердце / область сердца"} {
+		sess, err := st.createSession(fmt.Sprintf("u-chest-%d", index), "Тест", 40, 1)
 		if err != nil {
-			t.Fatalf("answer(%q): %v", answer, err)
+			t.Fatalf("createSession: %v", err)
 		}
-	}
-	if !state.IsEmergency || state.Step != stepEmergency {
-		t.Fatalf("кнопка «Грудь / грудная клетка» должна сразу давать emergency: %+v", state)
-	}
-	if !strings.Contains(state.EmergencyReason, "груди") {
-		t.Fatalf("ожидалась причина про боль в груди: %q", state.EmergencyReason)
+
+		var state chatState
+		for _, answer := range []string{"Понятно, начать опрос", "Боль", location} {
+			state, err = a.answer(context.Background(), sess, answer)
+			if err != nil {
+				t.Fatalf("answer(%q): %v", answer, err)
+			}
+		}
+		if !state.IsEmergency || state.Step != stepEmergency {
+			t.Fatalf("локализация «%s» должна сразу давать emergency: %+v", location, state)
+		}
+		if !strings.Contains(state.EmergencyReason, "груди") {
+			t.Fatalf("ожидалась причина про боль в груди: %q", state.EmergencyReason)
+		}
 	}
 }
 
@@ -1538,7 +1599,7 @@ func TestAcuteAbdomenContextTriggersEmergency(t *testing.T) {
 			"Понятно, начать опрос",
 			"Боль",
 			"Живот",
-			"Резкая, острая, возникла внезапно как удар",
+			"Резкая, острая",
 		} {
 			state, err = a.answer(context.Background(), sess, answer)
 			if err != nil {
@@ -1560,7 +1621,7 @@ func TestAcuteAbdomenContextTriggersEmergency(t *testing.T) {
 			"Понятно, начать опрос",
 			"Боль",
 			"Живот",
-			"Ноющая / тупая, нарастала постепенно",
+			"Ноющая / тупая",
 			"1–3 дня",
 			severityUnbearable,
 		} {
@@ -1590,7 +1651,7 @@ func TestAIClarificationRedFlag(t *testing.T) {
 	sess.Answers = map[string]string{
 		stepComplaintCategory: "Боль",
 		stepComplaintLocation: "Голова",
-		stepSymptomCharacter:  "Тяжесть / давящая боль после сна, усталости или стресса",
+		stepSymptomCharacter:  "Тяжесть / давящая боль",
 		stepComplaintDuration: durationToday,
 		stepComplaintSeverity: "Умеренно",
 		aiClarificationKey:    clarificationJSON(t, "Была ли потеря сознания?", []string{"Нет", "Да, кратковременно", "Не помню"}),
@@ -1650,7 +1711,7 @@ func TestSelfCareForHeavyHeadAfterSleep(t *testing.T) {
 		Answers: map[string]string{
 			stepComplaintCategory: "Боль",
 			stepComplaintLocation: "Голова",
-			stepSymptomCharacter:  "Тяжесть / давящая боль после сна, усталости или стресса",
+			stepSymptomCharacter:  "Тяжесть / давящая боль",
 			stepComplaintDuration: durationToday,
 			stepComplaintSeverity: "Умеренно",
 		},
@@ -1683,7 +1744,7 @@ func TestAdditionalAndChronicMultiSelect(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 	} {
@@ -1763,7 +1824,7 @@ func TestBackInMultiSelectTrimsMessages(t *testing.T) {
 		"Понятно, начать опрос",
 		"Боль",
 		"Голова",
-		"Ноющая / тупая, нарастала постепенно",
+		"Ноющая / тупая",
 		"1–3 дня",
 		"Умеренно",
 	} {
@@ -1817,6 +1878,249 @@ func TestBackInMultiSelectTrimsMessages(t *testing.T) {
 		if message.Role == "user" && message.Text == "Гипертония / ССЗ" {
 			t.Fatal("отменённый ответ «Гипертония / ССЗ» остался в ленте")
 		}
+	}
+}
+
+func TestEffectivePatientAge(t *testing.T) {
+	cases := []struct {
+		name    string
+		age     int
+		answers map[string]string
+		want    int
+	}{
+		{"взрослый", 25, nil, 25},
+		{"детский профиль без возраста", 38, map[string]string{stepDisclaimer: disclaimerChildOption}, 0},
+		{"до 1 года", 38, map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "До 1 года"}, 0},
+		{"1–3 года", 38, map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "1–3 года"}, 2},
+		{"4–11 лет", 38, map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "4–11 лет"}, 8},
+		{"12–17 лет", 38, map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "12–17 лет"}, 15},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := effectivePatientAge(tc.age, tc.answers); got != tc.want {
+				t.Fatalf("effectivePatientAge(%d) = %d, ожидалось %d", tc.age, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestHabitsAgeFiltering(t *testing.T) {
+	t.Run("до 3 лет шаг исключён", func(t *testing.T) {
+		for _, childAge := range []string{"До 1 года", "1–3 года"} {
+			answers := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: childAge}
+			steps := stepsFor(1, 38, answers)
+			if _, ok := findStep(steps, stepHabits); ok {
+				t.Fatalf("для %q шаг habits не должен показываться", childAge)
+			}
+			if len(steps) != 15 {
+				t.Fatalf("для %q шагов %d, ожидалось 15", childAge, len(steps))
+			}
+		}
+	})
+
+	childAnswers := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "4–11 лет"}
+	childSteps := stepsFor(1, 38, childAnswers)
+	if len(childSteps) != 16 {
+		t.Fatalf("для ребёнка 4–11 лет шагов %d, ожидалось 16", len(childSteps))
+	}
+	childHabits, ok := findStep(childSteps, stepHabits)
+	if !ok {
+		t.Fatal("для ребёнка 4–11 лет шаг habits должен быть")
+	}
+	if childHabits.Question != habitsChildIntroQuestion {
+		t.Fatalf("вопрос habits для ребёнка: %q", childHabits.Question)
+	}
+	wantChildOptions := []string{habitsChildNone, "Недосып / хронический стресс", "Малоподвижный образ жизни"}
+	if strings.Join(childHabits.Options, "|") != strings.Join(wantChildOptions, "|") {
+		t.Fatalf("кнопки habits для ребёнка: %v", childHabits.Options)
+	}
+
+	childContinue := habitsStep(8, map[string]string{stepHabits: encodeHabitList([]string{"Недосып / хронический стресс"})})
+	wantContinue := []string{habitsDone, "Малоподвижный образ жизни"}
+	if childContinue.Question != habitsChildContinueQuestion || strings.Join(childContinue.Options, "|") != strings.Join(wantContinue, "|") {
+		t.Fatalf("цикл habits для ребёнка: %+v", childContinue)
+	}
+
+	teenAnswers := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "12–17 лет"}
+	teenSteps := stepsFor(1, 38, teenAnswers)
+	if len(teenSteps) != 16 {
+		t.Fatalf("для подростка 12–17 лет шагов %d, ожидалось 16", len(teenSteps))
+	}
+	teenHabits, _ := findStep(teenSteps, stepHabits)
+	if teenHabits.Question != habitsIntroQuestion {
+		t.Fatalf("подросток 12–17 должен получать взрослый вопрос habits: %q", teenHabits.Question)
+	}
+	if len(teenHabits.Options) != len(habitRiskFactors)+1 {
+		t.Fatalf("подросток 12–17 должен получать все факторы: %v", teenHabits.Options)
+	}
+
+	adultSteps := stepsFor(1, 25, nil)
+	if len(adultSteps) != 15 {
+		t.Fatalf("для взрослого шагов %d, ожидалось 15", len(adultSteps))
+	}
+	adultHabits, _ := findStep(adultSteps, stepHabits)
+	if adultHabits.Question != habitsIntroQuestion || len(adultHabits.Options) != len(habitRiskFactors)+1 {
+		t.Fatalf("взрослый habits: %+v", adultHabits)
+	}
+}
+
+func TestHabitsChildNoneAndBack(t *testing.T) {
+	if parseHabitList(habitsChildNone) != nil {
+		t.Fatal("«Нет факторов риска» должен считаться пустым списком")
+	}
+	sess := &chatSession{Age: 38, Answers: map[string]string{
+		stepDisclaimer: disclaimerChildOption,
+		stepChildAge:   "4–11 лет",
+		stepHabits:     encodeHabitList([]string{"Недосып / хронический стресс"}),
+	}}
+	if got := sess.habitsDisplay(); got != "Недосып / хронический стресс" {
+		t.Fatalf("habitsDisplay для ребёнка: %q", got)
+	}
+
+	st, err := openStore(filepath.Join(t.TempDir(), "habits-child-back.db"))
+	if err != nil {
+		t.Fatalf("openStore: %v", err)
+	}
+	defer st.close()
+
+	a := &app{store: st}
+	session, err := st.createSession("u-habits-child", "Тест", 38, 1)
+	if err != nil {
+		t.Fatalf("createSession: %v", err)
+	}
+	session.Answers = sess.Answers
+	session.CurrentStep = stepHabits
+	session.History = []string{stepHeredity}
+	if err := st.saveSession(session); err != nil {
+		t.Fatalf("saveSession: %v", err)
+	}
+
+	state, err := a.back(session)
+	if err != nil {
+		t.Fatalf("back в habits: %v", err)
+	}
+	if state.Step != stepHabits {
+		t.Fatalf("ожидался habits после back, получено %q", state.Step)
+	}
+	want := []string{habitsChildNone, "Недосып / хронический стресс", "Малоподвижный образ жизни"}
+	if strings.Join(state.Options, "|") != strings.Join(want, "|") {
+		t.Fatalf("после back должны остаться только детские факторы: %v", state.Options)
+	}
+
+	state, err = a.answer(context.Background(), session, "Недосып / хронический стресс")
+	if err != nil {
+		t.Fatalf("answer(детский фактор): %v", err)
+	}
+	if state.Step != stepHabits || state.Question != habitsChildContinueQuestion {
+		t.Fatalf("ожидался детский цикл habits: %+v", state)
+	}
+	if strings.Join(state.Options, "|") != strings.Join([]string{habitsDone, "Малоподвижный образ жизни"}, "|") {
+		t.Fatalf("после выбора фактора остались неверные кнопки: %v", state.Options)
+	}
+
+	state, err = a.answer(context.Background(), session, "Малоподвижный образ жизни")
+	if err != nil {
+		t.Fatalf("answer(второй детский фактор): %v", err)
+	}
+	if state.Step != stepPaymentType {
+		t.Fatalf("после всех детских факторов ожидался payment_type, получено %q", state.Step)
+	}
+}
+
+func TestChronicAgeFiltering(t *testing.T) {
+	childAnswers := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "4–11 лет"}
+	childChronic, ok := findStep(stepsFor(1, 38, childAnswers), stepChronic)
+	if !ok {
+		t.Fatal("шаг chronic должен быть")
+	}
+	wantChild := []string{chronicNone, "Бронхиальная астма", "Диабет", "Онкология"}
+	if strings.Join(childChronic.Options, "|") != strings.Join(wantChild, "|") {
+		t.Fatalf("хронические для ребёнка: %v", childChronic.Options)
+	}
+
+	childContinue := chronicStep(8, map[string]string{stepChronic: encodeHabitList([]string{"Бронхиальная астма"})})
+	wantContinue := []string{chronicDone, "Диабет", "Онкология"}
+	if strings.Join(childContinue.Options, "|") != strings.Join(wantContinue, "|") {
+		t.Fatalf("цикл chronic для ребёнка: %v", childContinue.Options)
+	}
+
+	teenAnswers := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "12–17 лет"}
+	teenChronic, _ := findStep(stepsFor(1, 38, teenAnswers), stepChronic)
+	wantAdult := []string{chronicNone, "Гипертония / ССЗ", "Диабет", "Астма / ХОБЛ", "Онкология"}
+	if strings.Join(teenChronic.Options, "|") != strings.Join(wantAdult, "|") {
+		t.Fatalf("хронические для подростка 12–17: %v", teenChronic.Options)
+	}
+
+	adultChronic, _ := findStep(stepsFor(1, 25, nil), stepChronic)
+	if strings.Join(adultChronic.Options, "|") != strings.Join(wantAdult, "|") {
+		t.Fatalf("хронические для взрослого: %v", adultChronic.Options)
+	}
+}
+
+func TestChildChronicCycle(t *testing.T) {
+	st, err := openStore(filepath.Join(t.TempDir(), "child-chronic.db"))
+	if err != nil {
+		t.Fatalf("openStore: %v", err)
+	}
+	defer st.close()
+
+	a := &app{store: st}
+	sess, err := st.createSession("u-child-chronic", "Тест", 38, 1)
+	if err != nil {
+		t.Fatalf("createSession: %v", err)
+	}
+	sess.Answers = map[string]string{
+		stepDisclaimer: disclaimerChildOption,
+		stepChildAge:   "4–11 лет",
+	}
+	sess.CurrentStep = stepChronic
+	sess.History = []string{stepAdditionalSymptoms}
+	if err := st.saveSession(sess); err != nil {
+		t.Fatalf("saveSession: %v", err)
+	}
+
+	var state chatState
+	for index, factor := range []string{"Бронхиальная астма", "Диабет", "Онкология"} {
+		state, err = a.answer(context.Background(), sess, factor)
+		if err != nil {
+			t.Fatalf("answer(%q): %v", factor, err)
+		}
+		if index < 2 {
+			if state.Step != stepChronic || !containsString(state.Options, chronicDone) {
+				t.Fatalf("ожидался детский цикл chronic после %q: %+v", factor, state)
+			}
+			if containsString(state.Options, "Гипертония / ССЗ") {
+				t.Fatalf("гипертония не должна показываться ребёнку: %v", state.Options)
+			}
+		}
+	}
+	if state.Step != stepMedsStatus {
+		t.Fatalf("после всех детских заболеваний ожидался meds_status, получено %q", state.Step)
+	}
+}
+
+func TestEarlyChildLocationAndCharacter(t *testing.T) {
+	early := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "1–3 года", stepComplaintCategory: "Головокружение, онемение, сон"}
+	steps := stepsFor(1, 38, early)
+	location, _ := findStep(steps, stepComplaintLocation)
+	if strings.Join(location.Options, "|") != strings.Join(earlyChildNeuroLocations, "|") {
+		t.Fatalf("локализация неврологии для ребёнка до 3 лет: %v", location.Options)
+	}
+	if !containsString(location.Options, "Слабость в руке/ноге или нарушение речи") {
+		t.Fatal("кнопка красного флага stroke должна сохраниться")
+	}
+
+	childPain := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "1–3 года", stepComplaintCategory: "Боль"}
+	steps = stepsFor(1, 38, childPain)
+	character, _ := findStep(steps, stepSymptomCharacter)
+	if strings.Join(character.Options, "|") != strings.Join(earlyChildPainCharacter, "|") {
+		t.Fatalf("характер боли для ребёнка до 3 лет: %v", character.Options)
+	}
+
+	older := map[string]string{stepDisclaimer: disclaimerChildOption, stepChildAge: "4–11 лет", stepComplaintCategory: "Головокружение, онемение, сон"}
+	location, _ = findStep(stepsFor(1, 38, older), stepComplaintLocation)
+	if strings.Join(location.Options, "|") != strings.Join(locationHintsFor("Головокружение, онемение, сон"), "|") {
+		t.Fatalf("для ребёнка 4–11 лет неврология должна быть обычной: %v", location.Options)
 	}
 }
 

@@ -95,7 +95,7 @@ func TestLocalCardForChild(t *testing.T) {
 		Sex: 2,
 		Answers: map[string]string{
 			stepDisclaimer:        disclaimerChildOption,
-			stepChildAge:          "4–12 лет",
+			stepChildAge:          "4–11 лет",
 			stepComplaintCategory: "Температура",
 			stepPaymentType:       "ОМС (бесплатно по полису)",
 		},
@@ -122,13 +122,13 @@ func TestBuildUserPromptForChild(t *testing.T) {
 		Sex: 2,
 		Answers: map[string]string{
 			stepDisclaimer:        disclaimerChildOption,
-			stepChildAge:          "13–17 лет",
+			stepChildAge:          "12–17 лет",
 			stepComplaintCategory: "Температура",
 		},
 	}
 
 	prompt := buildUserPrompt(sess)
-	for _, want := range []string{"на ребёнка", "13–17 лет", "педиатр"} {
+	for _, want := range []string{"на ребёнка", "12–17 лет", "педиатр"} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("в промпте нет %q:\n%s", want, prompt)
 		}
@@ -166,6 +166,8 @@ func TestSystemPromptRequiresInteractionAnalysis(t *testing.T) {
 		"заглавной буквы",
 		"self_care",
 		"450–550",
+		"Что делать до визита к врачу:",
+		"Что подготовить к приёму:",
 		"только на «вы»",
 		"Пациент принимает",
 		"угрожающее состояние",
@@ -176,6 +178,27 @@ func TestSystemPromptRequiresInteractionAnalysis(t *testing.T) {
 		if !strings.Contains(systemPrompt, want) {
 			t.Fatalf("в системном промпте нет %q", want)
 		}
+	}
+}
+
+func TestLocalCardPreparationTipsHasTwoBlocks(t *testing.T) {
+	sess := &chatSession{
+		Age: 30,
+		Sex: 1,
+		Answers: map[string]string{
+			stepComplaintCategory: "Боль",
+			stepComplaintLocation: "Голова",
+			stepPaymentType:       "ОМС (бесплатно по полису)",
+		},
+	}
+	tips := localCard(sess).PreparationTips
+	for _, want := range []string{"Что делать до визита к врачу:", "Что подготовить к приёму:"} {
+		if !strings.Contains(tips, want) {
+			t.Fatalf("в памятке нет блока %q: %q", want, tips)
+		}
+	}
+	if strings.Contains(strings.ToLower(tips), "принимайте") || strings.Contains(strings.ToLower(tips), "назначьте") {
+		t.Fatalf("памятка не должна назначать лечение: %q", tips)
 	}
 }
 

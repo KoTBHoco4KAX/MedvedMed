@@ -18,6 +18,8 @@ import { Composer } from './components/Composer'
 import { ResultCard } from './components/ResultCard'
 import { EmergencyCard } from './components/EmergencyCard'
 import { HistoryPanel } from './components/HistoryPanel'
+import { EmergencyGuideModal } from './components/EmergencyGuideModal'
+import { BodyMapModal } from './components/BodyMapModal'
 
 type Phase = 'booting' | 'chat' | 'denied' | 'failed'
 type View = 'chat' | 'history'
@@ -41,9 +43,13 @@ export default function App() {
   const [error, setError] = useState('')
   const [history, setHistory] = useState<HistoryItem[] | null>(null)
   const [historyError, setHistoryError] = useState('')
+  const [guideOpen, setGuideOpen] = useState(false)
+  const [bodyMapOpen, setBodyMapOpen] = useState(false)
 
   const feedRef = useRef<HTMLDivElement | null>(null)
   const booted = useRef(false)
+  const bodyMapDismissed = useRef<string | null>(null)
+  const lastStepRef = useRef<string | null>(null)
 
   const deny = useCallback((message: string) => {
     dropToken()
@@ -179,6 +185,8 @@ export default function App() {
 
     setPending('back')
     setError('')
+    bodyMapDismissed.current = null
+    setBodyMapOpen(false)
     try {
       setChat(await goBack(token))
     } catch (cause) {
@@ -200,6 +208,8 @@ export default function App() {
       setView('chat')
       setHistory(null)
       setHistoryError('')
+      bodyMapDismissed.current = null
+      setBodyMapOpen(false)
     } catch (cause) {
       fail(cause)
     } finally {
@@ -235,6 +245,43 @@ export default function App() {
     setView('history')
     void loadHistory()
   }, [loadHistory, view])
+
+  const bodyMapKey =
+    chat !== null && view === 'chat' && chat.step === 'complaint_location' && chat.question === 'Где именно болит?'
+      ? `${chat.sessionToken}:${chat.step}:${chat.progress.current}`
+      : null
+
+  const closeBodyMap = useCallback(() => {
+    if (bodyMapKey !== null) bodyMapDismissed.current = bodyMapKey
+    setBodyMapOpen(false)
+  }, [bodyMapKey])
+
+  useEffect(() => {
+    const step = chat?.step ?? null
+    if (step === null) {
+      lastStepRef.current = null
+      setBodyMapOpen(false)
+      return
+    }
+    if (step === lastStepRef.current) return
+
+    lastStepRef.current = step
+    bodyMapDismissed.current = null
+    if (step === 'complaint_location' && chat?.question === 'Где именно болит?' && bodyMapDismissed.current !== bodyMapKey) {
+      setBodyMapOpen(true)
+    } else {
+      setBodyMapOpen(false)
+    }
+  }, [bodyMapKey, chat?.question, chat?.step])
+
+  const selectBodyMap = useCallback(
+    (location: string) => {
+      if (bodyMapKey !== null) bodyMapDismissed.current = bodyMapKey
+      setBodyMapOpen(false)
+      void submitAnswer(location)
+    },
+    [bodyMapKey, submitAnswer],
+  )
 
   if (phase === 'booting') {
     return (
@@ -312,7 +359,12 @@ export default function App() {
 
   return (
     <div className="mx-auto flex h-[100dvh] w-full max-w-md flex-col bg-canvas">
-      <Header firstName={chat?.firstName ?? ''} historyOpen={view === 'history'} onToggleHistory={toggleHistory} />
+      <Header
+        firstName={chat?.firstName ?? ''}
+        historyOpen={view === 'history'}
+        onToggleHistory={toggleHistory}
+        onOpenGuide={() => setGuideOpen(true)}
+      />
       {showProgress && chat !== null && (
         <ProgressBar
           current={chat.progress.current}
@@ -375,11 +427,21 @@ export default function App() {
               options={chat.options}
               allowFreeText={chat.allowFreeText}
               pending={pending !== null}
+              showBodyMapButton={bodyMapKey !== null && !bodyMapOpen}
+              onOpenBodyMap={() => setBodyMapOpen(true)}
               onAnswer={(answer) => void submitAnswer(answer)}
             />
           )}
         </>
       )}
+
+      <EmergencyGuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <BodyMapModal
+        open={bodyMapOpen && bodyMapKey !== null}
+        sex={chat?.sex ?? 0}
+        onClose={closeBodyMap}
+        onSelect={selectBodyMap}
+      />
     </div>
   )
 }

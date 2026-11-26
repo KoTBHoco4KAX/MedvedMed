@@ -56,10 +56,13 @@ const (
 const (
 	allergyNone = "Аллергий нет"
 
-	habitsNone             = "Нет вредных привычек"
-	habitsDone             = "На этом всё"
-	habitsIntroQuestion    = "Есть ли у вас вредные привычки или факторы образа жизни из списка ниже?"
-	habitsContinueQuestion = "Есть ли ещё какие-то вредные привычки?"
+	habitsNone                  = "Нет вредных привычек"
+	habitsChildNone             = "Нет факторов риска"
+	habitsDone                  = "На этом всё"
+	habitsIntroQuestion         = "Есть ли у вас вредные привычки или факторы образа жизни из списка ниже?"
+	habitsChildIntroQuestion    = "Есть ли у ребёнка факторы образа жизни из списка ниже?"
+	habitsContinueQuestion      = "Есть ли ещё какие-то вредные привычки?"
+	habitsChildContinueQuestion = "Есть ли ещё факторы образа жизни?"
 )
 
 // Режим «заполняю за ребёнка»: вторая кнопка дисклеймера и возраст ребёнка.
@@ -68,7 +71,7 @@ const (
 	disclaimerChildOption = "Заполняю за ребёнка (до 18 лет)"
 )
 
-var childAgeOptions = []string{"До 1 года", "1–3 года", "4–12 лет", "13–17 лет"}
+var childAgeOptions = []string{"До 1 года", "1–3 года", "4–11 лет", "12–17 лет"}
 
 const (
 	disclaimerText = "Бот не ставит диагноз и не заменяет врача. Я задам несколько вопросов о самочувствии, чтобы подсказать, к какому специалисту и как срочно лучше обратиться."
@@ -105,21 +108,38 @@ var (
 		severityUnbearable,
 	}
 
-	painLocations = []string{"Голова", "Грудь / грудная клетка", "Горло / ухо", "Живот", "Спина / поясница", "Суставы / конечности"}
+	painLocations = []string{
+		"Голова",
+		"Шея",
+		"Грудная клетка",
+		"Сердце / область сердца",
+		"Живот",
+		"Таз",
+		"Спина / поясница",
+		"Плечи",
+		"Локти",
+		"Предплечья",
+		"Руки",
+		"Кисти",
+		"Бёдра",
+		"Колени",
+		"Голени",
+	}
 
 	temperatureOptions = []string{
 		"37.0–37.9 °C",
 		"38.0–38.9 °C",
 		"39.0–39.5 °C",
-		"Выше 39.5 °C (39,8 °C)",
+		"Выше 39,5 °C",
 	}
 
 	symptomCharacterPain = []string{
-		"Тяжесть / давящая боль после сна, усталости или стресса",
-		"Ноющая / тупая, нарастала постепенно",
+		"Тяжесть / давящая боль",
+		"Ноющая / тупая",
 		"Пульсирующая",
-		"Резкая, острая, возникла внезапно как удар",
-		"После травмы / ушиба",
+		"Резкая, острая",
+		"Жгучая",
+		"Колюшая / простреливающая",
 	}
 
 	symptomCharacterTemperature = []string{
@@ -131,42 +151,43 @@ var (
 	}
 
 	symptomCharacterBreathing = []string{
-		"После переохлаждения / простуды",
-		"Сухой, приступообразный",
-		"Влажный (с мокротой / выделениями)",
-		"Усиливается при контакте с пылью/аллергенами",
-		"Появилось внезапно без видимой причины",
+		"Сухой",
+		"Влажный, с мокротой",
+		"Приступообразный",
+		"Свистящий / с хрипами",
+		"Одышка в покое / нехватка воздуха",
 	}
 
 	symptomCharacterDigestive = []string{
-		"После еды или новой/некачественной пищи",
-		"Натощак или ночью",
 		"Спазмы / режущая боль",
 		"Тянущая, ноющая тяжесть",
+		"Жжение / изжога",
+		"Тошнота / рвота",
 		"Кровь в стуле или рвотных массах",
 	}
 
 	symptomCharacterSkin = []string{
-		"После новой еды, лекарств или косметики",
-		"После укуса насекомого или контакта с растением",
-		"Связано с температурой / простудой",
+		"Зуд / жжение",
+		"Покраснение / отёк",
+		"Сыпь / пузырьки",
+		"Мокнутие / шелушение",
 		"Меняет цвет, форму или быстро растёт",
-		"Появилось постепенно без видимой причины",
 	}
 
 	symptomCharacterNeuro = []string{
-		"После недосыпа, стресса или усталости",
-		"При резком вставании или повороте головы",
-		"Постоянное, мешает обычным делам",
-		"Появилось внезапно, резко усиливается",
+		"Давящая / сжимающая",
+		"Пульсирующая",
+		"Головокружение / неустойчивость",
+		"Онемение / покалывание",
+		"Резкая, простреливающая",
 	}
 
 	symptomCharacterTrauma = []string{
 		"Сильный отёк или невозможно наступить/пошевелить",
 		"Небольшая боль, кожа не повреждена",
 		"Кровотечение не останавливается",
-		"Падение с высоты",
-		"После удара кружится голова или тошнит",
+		"Деформация / неестественное положение",
+		"Онемение или слабость ниже места травмы",
 	}
 
 	symptomCharacterOther = []string{
@@ -176,8 +197,204 @@ var (
 		"Боль без чёткой локализации",
 	}
 
-	chronicOptions = []string{chronicNone, "Гипертония / ССЗ", "Диабет", "Астма / ХОБЛ", "Онкология"}
-	chronicFactors = []string{"Гипертония / ССЗ", "Диабет", "Астма / ХОБЛ", "Онкология"}
+	// Для каждой выбранной подсказки — свой набор характера симптома.
+	// Это не даёт спрашивать про кашель одними и теми же кнопками,
+	// что и про заложенность носа/одышку.
+	symptomCharacterByLocation = map[string][]string{
+		"Кашель": {
+			"Сухой, приступообразный",
+			"Влажный, с мокротой",
+			"С болью в груди",
+			"Со свистом / хрипами",
+			"С температурой",
+		},
+		"Заложенность носа / насморк": {
+			"Заложенность без выделений",
+			"Насморк с жидкими выделениями",
+			"Густые выделения",
+			"С болью в пазухах",
+			"С чиханием и зудом",
+		},
+		"Першение или боль в горле": {
+			"Боль при глотании",
+			"Сухость / першение",
+			"С температурой",
+			"С налётом на миндалинах",
+			"Осиплость / потеря голоса",
+		},
+		"Одышка при нагрузке": {
+			"Только при нагрузке",
+			"В покое тоже",
+			"Нехватка воздуха / удушье",
+			"Свистящее дыхание / хрипы",
+			"С кашлем",
+		},
+		"Сыпь": {
+			"Мелкая красная сыпь",
+			"Крупные пятна",
+			"С зудом",
+			"С отёком",
+			"С температурой",
+		},
+		"Зуд или покраснение": {
+			"Зуд без сыпи",
+			"Покраснение без зуда",
+			"Зуд с отёком",
+			"Зуд с шелушением",
+			"Покраснение с температурой",
+		},
+		"Пятно или новообразование": {
+			"Не меняется",
+			"Растёт",
+			"Меняет цвет",
+			"Кровоточит",
+			"С неровными краями",
+		},
+		"Волдыри / шелушение": {
+			"Волдыри с жидкостью",
+			"Шелушение без зуда",
+			"Шелушение с зудом",
+			"Мокнутие",
+			"Пузырьки с болью",
+		},
+		"Тошнота или рвота": {
+			"Тошнота без рвоты",
+			"Рвота однократная",
+			"Рвота повторная",
+			"Рвота с кровью",
+			"Тошнота с болью в животе",
+		},
+		"Диарея": {
+			"Жидкий стул без крови",
+			"Кровь в стуле",
+			"С температурой",
+			"С обезвоживанием",
+			"С болью в животе",
+		},
+		"Запор или вздутие": {
+			"Запор без боли",
+			"Запор с болью",
+			"Вздутие / распирание",
+			"Кровь в стуле",
+			"Запор с тошнотой",
+		},
+		"Боль / тяжесть в животе": {
+			"Тупая / ноющая",
+			"Резкая, острая / схваткообразная",
+			"С тошнотой",
+			"С кровью в стуле",
+			"С вздутием",
+		},
+		"Ушиб": {
+			"Небольшая боль, кожа не повреждена",
+			"Сильный отёк",
+			"Гематома",
+			"Боль при движении",
+			"Онемение ниже места",
+		},
+		"Растяжение / подвернул сустав": {
+			"Отёк без деформации",
+			"Невозможно наступить",
+			"Деформация",
+			"Боль при движении",
+			"Онемение ниже места",
+		},
+		"Порез или рана": {
+			"Кровотечение остановилось",
+			"Кровотечение не останавливается",
+			"Рана глубокая",
+			"Края раны разошлись",
+			"Есть инородное тело",
+		},
+		"Подозрение на перелом": {
+			"Деформация конечности",
+			"Невозможно пошевелить",
+			"Онемение ниже места",
+			"Открытая рана",
+			"Сильный отёк",
+		},
+		"Удар по голове": {
+			"Головная боль",
+			"Тошнота / рвота",
+			"Потеря сознания",
+			"Спутанность / не помнит",
+			"Кружится голова",
+		},
+		"Головокружение": {
+			"Кружится при вставании",
+			"Постоянное головокружение",
+			"Предметы вращаются",
+			"С тошнотой",
+			"С потерей равновесия",
+		},
+		"Онемение или покалывание": {
+			"Покалывание без слабости",
+			"Онемение одной руки/ноги",
+			"Онемение лица",
+			"Слабость в конечности",
+			"С нарушением речи",
+		},
+		"Нарушение сна / бессонница": {
+			"Трудно заснуть",
+			"Частые пробуждения",
+			"Сон не приносит отдыха",
+			"Бессонница с тревогой",
+			"Сонливость днём",
+		},
+		"Слабость в руке/ноге или нарушение речи": {
+			"Слабость в одной руке",
+			"Слабость в одной ноге",
+			"Слабость на одной стороне",
+			"Нарушение речи",
+			"Онемение лица",
+		},
+		"Нарушение сна / беспокойство": {
+			"Плохо спит",
+			"Часто просыпается",
+			"Плачет ночью",
+			"Не может успокоиться",
+		},
+		"Вялость / необычная сонливость": {
+			"Трудно разбудить",
+			"Мало двигается",
+			"Отказывается от еды",
+			"Не реагирует как обычно",
+		},
+		"Общая слабость": {
+			"Слабость без температуры",
+			"Слабость с головокружением",
+			"Слабость после нагрузки",
+			"Слабость с потерей веса",
+		},
+		"Утомляемость": {
+			"Быстро устаю",
+			"Усталость постоянная",
+			"Утомляемость с одышкой",
+			"Снижение работоспособности",
+		},
+		"Снижение веса": {
+			"Похудение без усилий",
+			"Снижение аппетита",
+			"Снижение веса с жаждой",
+			"Снижение веса с потливостью",
+		},
+	}
+
+	// Ранний возраст (≤ 3 лет): отдельные формулировки для неврологии и боли.
+	earlyChildNeuroLocations = []string{
+		"Нарушение сна / беспокойство",
+		"Вялость / необычная сонливость",
+		"Слабость в руке/ноге или нарушение речи",
+	}
+
+	earlyChildPainCharacter = []string{
+		"Плач / беспокойство при движении или прикосновении",
+		"Сильный плач, не успокаивается",
+		"Есть отёк или покраснение",
+	}
+
+	chronicFactorsAdult = []string{"Гипертония / ССЗ", "Диабет", "Астма / ХОБЛ", "Онкология"}
+	chronicFactorsChild = []string{"Бронхиальная астма", "Диабет", "Онкология"}
 
 	medsStatusOptions = []string{medsNone, medsRegular, medsOccasional}
 
@@ -188,6 +405,11 @@ var (
 		"Курение / вейп",
 		"Употребление алкоголя",
 		"Употребление наркотиков / ПАВ",
+		"Недосып / хронический стресс",
+		"Малоподвижный образ жизни",
+	}
+
+	habitRiskFactorsChild = []string{
 		"Недосып / хронический стресс",
 		"Малоподвижный образ жизни",
 	}
@@ -204,6 +426,7 @@ var (
 // stepsFor строит маршрут опроса для конкретного пациента.
 // Условные шаги: meds_details (зависит от meds_status) и pregnancy (пол и возраст).
 func stepsFor(sex, age int, answers map[string]string) []stepSpec {
+	patientAge := effectivePatientAge(age, answers)
 	steps := []stepSpec{
 		{
 			ID:       stepDisclaimer,
@@ -218,8 +441,8 @@ func stepsFor(sex, age int, answers map[string]string) []stepSpec {
 			Options:       complaintCategories,
 			AllowFreeText: true,
 		},
-		complaintLocationStep(answers[stepComplaintCategory]),
-		symptomCharacterStep(answers[stepComplaintCategory]),
+		complaintLocationStep(answers[stepComplaintCategory], patientAge),
+		symptomCharacterStep(answers[stepComplaintCategory], patientAge, answers[stepComplaintLocation]),
 		{
 			ID:            stepComplaintDuration,
 			Label:         "Как давно началось",
@@ -235,7 +458,7 @@ func stepsFor(sex, age int, answers map[string]string) []stepSpec {
 			AllowFreeText: true,
 		},
 		additionalSymptomsStep(answers),
-		chronicStep(answers),
+		chronicStep(patientAge, answers),
 		{
 			ID:       stepMedsStatus,
 			Label:    "Приём лекарств",
@@ -277,7 +500,7 @@ func stepsFor(sex, age int, answers map[string]string) []stepSpec {
 			Label:         "Аллергии",
 			Question:      "Есть ли у вас аллергия на лекарства, продукты или что-то ещё?",
 			Options:       allergyOptions,
-			AllowFreeText: true,
+			AllowFreeText: false,
 		},
 	)
 
@@ -297,14 +520,14 @@ func stepsFor(sex, age int, answers map[string]string) []stepSpec {
 			Label:         "Операции и госпитализации",
 			Question:      "Были ли у вас операции или госпитализации за последний год?",
 			Options:       hospitalizationOptions,
-			AllowFreeText: true,
+			AllowFreeText: false,
 		},
 		stepSpec{
 			ID:            stepHeredity,
 			Label:         "Наследственность",
 			Question:      "Есть ли у близких родственников тяжёлые наследственные заболевания (инфаркт/инсульт, диабет, онкология)?",
 			Options:       heredityOptions,
-			AllowFreeText: true,
+			AllowFreeText: false,
 		},
 	)
 
@@ -317,8 +540,11 @@ func stepsFor(sex, age int, answers map[string]string) []stepSpec {
 		})
 	}
 
+	if patientAge >= 3 {
+		steps = append(steps, habitsStep(patientAge, answers))
+	}
+
 	steps = append(steps,
-		habitsStep(answers),
 		stepSpec{
 			ID:       stepPaymentType,
 			Label:    "Тип оплаты",
@@ -346,7 +572,7 @@ func stepsFor(sex, age int, answers map[string]string) []stepSpec {
 
 // complaintLocationStep — шаг уточнения: для температуры спрашиваем градусы,
 // для боли — локализацию, для остальных категорий — подсказки под жалобу.
-func complaintLocationStep(category string) stepSpec {
+func complaintLocationStep(category string, patientAge int) stepSpec {
 	if isTemperatureComplaint(category) {
 		return stepSpec{
 			ID:            stepComplaintLocation,
@@ -367,6 +593,16 @@ func complaintLocationStep(category string) stepSpec {
 		}
 	}
 
+	if patientAge <= 3 && strings.EqualFold(strings.TrimSpace(category), "Головокружение, онемение, сон") {
+		return stepSpec{
+			ID:            stepComplaintLocation,
+			Label:         "Уточнение симптома",
+			Question:      "Уточните, что именно и где беспокоит?",
+			Options:       earlyChildNeuroLocations,
+			AllowFreeText: true,
+		}
+	}
+
 	return stepSpec{
 		ID:            stepComplaintLocation,
 		Label:         "Уточнение симптома",
@@ -376,15 +612,31 @@ func complaintLocationStep(category string) stepSpec {
 	}
 }
 
-// symptomCharacterStep — характер симптома и триггер; кнопки зависят от категории.
-func symptomCharacterStep(category string) stepSpec {
+// symptomCharacterStep — только характер симптома; кнопки зависят от категории,
+// возраста и выбранной подсказки (кашель, сыпь, ушиб и т.д.).
+func symptomCharacterStep(category string, patientAge int, location ...string) stepSpec {
+	locationHint := ""
+	if len(location) > 0 {
+		locationHint = strings.TrimSpace(location[0])
+	}
+	options := symptomCharacterOptionsFor(category, locationHint)
+	if patientAge <= 3 && isPainComplaint(category) {
+		options = earlyChildPainCharacter
+	}
 	return stepSpec{
 		ID:            stepSymptomCharacter,
 		Label:         "Характер симптома",
-		Question:      "Какой характер у симптома и что его провоцирует?",
-		Options:       symptomCharacterOptions(category),
+		Question:      "Какой характер у симптома?",
+		Options:       options,
 		AllowFreeText: true,
 	}
+}
+
+func symptomCharacterOptionsFor(category, location string) []string {
+	if options, ok := symptomCharacterByLocation[location]; ok {
+		return options
+	}
+	return symptomCharacterOptions(category)
 }
 
 func symptomCharacterOptions(category string) []string {
@@ -459,39 +711,62 @@ func allergiesDetailsNeeded(answers map[string]string) bool {
 }
 
 // habitsStep собирает шаг привычек: первый выбор из атомарных факторов,
-// дальше — итеративный добор с «На этом всё».
-func habitsStep(answers map[string]string) stepSpec {
+// дальше — итеративный добор с «На этом всё». Набор кнопок зависит от возраста.
+func habitsStep(age int, answers map[string]string) stepSpec {
+	factors := habitFactorsForAge(age)
+	none := habitsNoneForAge(age)
+	question := habitsIntroQuestion
+	continueQuestion := habitsContinueQuestion
+	if age < 12 {
+		question = habitsChildIntroQuestion
+		continueQuestion = habitsChildContinueQuestion
+	}
+
 	habits := parseHabitList(answers[stepHabits])
 	if len(habits) == 0 {
-		options := make([]string, 0, len(habitRiskFactors)+1)
-		options = append(options, habitsNone)
-		options = append(options, habitRiskFactors...)
+		options := make([]string, 0, len(factors)+1)
+		options = append(options, none)
+		options = append(options, factors...)
 		return stepSpec{
 			ID:            stepHabits,
 			Label:         "Вредные привычки",
-			Question:      habitsIntroQuestion,
+			Question:      question,
 			Options:       options,
 			AllowFreeText: true,
 		}
 	}
 
-	options := make([]string, 0, len(habitRiskFactors))
+	options := make([]string, 0, len(factors)+1)
 	options = append(options, habitsDone)
-	options = append(options, remainingHabitOptions(habits)...)
+	options = append(options, remainingHabitOptions(habits, age)...)
 	return stepSpec{
 		ID:            stepHabits,
 		Label:         "Вредные привычки",
-		Question:      habitsContinueQuestion,
+		Question:      continueQuestion,
 		Options:       options,
 		AllowFreeText: true,
 	}
+}
+
+func habitFactorsForAge(age int) []string {
+	if age >= 3 && age < 12 {
+		return habitRiskFactorsChild
+	}
+	return habitRiskFactors
+}
+
+func habitsNoneForAge(age int) string {
+	if age >= 3 && age < 12 {
+		return habitsChildNone
+	}
+	return habitsNone
 }
 
 // parseHabitList разбирает сохранённый список привычек (JSON) с фоллбэком
 // на старый формат через запятую.
 func parseHabitList(raw string) []string {
 	raw = strings.TrimSpace(raw)
-	if raw == "" || raw == habitsNone {
+	if raw == "" || raw == habitsNone || raw == habitsChildNone {
 		return nil
 	}
 
@@ -503,7 +778,7 @@ func parseHabitList(raw string) []string {
 	out := make([]string, 0, len(list))
 	for _, item := range list {
 		item = strings.TrimSpace(item)
-		if item != "" && item != habitsNone && item != habitsDone && !containsString(out, item) {
+		if item != "" && item != habitsNone && item != habitsChildNone && item != habitsDone && !containsString(out, item) {
 			out = append(out, item)
 		}
 	}
@@ -520,8 +795,8 @@ func (s *chatSession) habitsDisplay() string {
 	if raw == "" {
 		return ""
 	}
-	if raw == habitsNone {
-		return habitsNone
+	if raw == habitsNone || raw == habitsChildNone {
+		return raw
 	}
 	if habits := s.habitList(); len(habits) > 0 {
 		return strings.Join(habits, ", ")
@@ -529,9 +804,10 @@ func (s *chatSession) habitsDisplay() string {
 	return raw
 }
 
-func remainingHabitOptions(selected []string) []string {
-	out := make([]string, 0, len(habitRiskFactors))
-	for _, factor := range habitRiskFactors {
+func remainingHabitOptions(selected []string, age int) []string {
+	factors := habitFactorsForAge(age)
+	out := make([]string, 0, len(factors))
+	for _, factor := range factors {
 		if !containsString(selected, factor) {
 			out = append(out, factor)
 		}
@@ -572,6 +848,26 @@ func (s *chatSession) isChild() bool {
 
 func (s *chatSession) childAge() string {
 	return strings.TrimSpace(s.Answers[stepChildAge])
+}
+
+// effectivePatientAge — возраст, по которому фильтруются шаги и кнопки.
+// В детском профиле берётся ответ child_age, иначе возраст из профиля MAX Core.
+func effectivePatientAge(age int, answers map[string]string) int {
+	if !isChildProfile(answers) {
+		return age
+	}
+	switch strings.TrimSpace(answers[stepChildAge]) {
+	case "До 1 года":
+		return 0
+	case "1–3 года":
+		return 2
+	case "4–11 лет", "4–12 лет":
+		return 8
+	case "12–17 лет", "13–17 лет":
+		return 15
+	default:
+		return 0
+	}
 }
 
 func findStep(steps []stepSpec, id string) (stepSpec, bool) {
@@ -758,6 +1054,16 @@ func (a *app) answer(ctx context.Context, sess *chatSession, raw string) (chatSt
 	}
 
 	now := time.Now()
+	patientAge := effectivePatientAge(sess.Age, sess.Answers)
+
+	// Красные флаги, явно привязанные к выбранной кнопке.
+	// Срабатывают до текстового анализа, чтобы не зависеть от формулировки.
+	if hit := optionRedFlagHit(sess, sess.CurrentStep, text); hit != nil {
+		sess.Messages = append(sess.Messages, chatMessage{
+			Role: "user", Step: sess.CurrentStep, Text: text, At: now,
+		})
+		return a.enterEmergency(sess, hit, now)
+	}
 
 	// 1) Мгновенные красные флаги проверяем только на шагах текущих жалоб:
 	//    описание прошлых аллергий, болезней и операций не должно обрывать опрос —
@@ -791,14 +1097,14 @@ func (a *app) answer(ctx context.Context, sess *chatSession, raw string) (chatSt
 
 	// Шаг привычек — цикл: ответ не двигает шаг линейно, а копит привычки.
 	if sess.CurrentStep == stepHabits {
-		return a.answerHabits(sess, text, now)
+		return a.answerHabits(sess, text, patientAge, now)
 	}
 	// Фоновый анамнез и сопутствующие симптомы — мультивыбор с «На этом всё».
 	if sess.CurrentStep == stepAdditionalSymptoms {
 		return a.answerAdditional(sess, text, now)
 	}
 	if sess.CurrentStep == stepChronic {
-		return a.answerChronic(sess, text, now)
+		return a.answerChronic(sess, text, patientAge, now)
 	}
 
 	sess.Answers[sess.CurrentStep] = text
@@ -914,7 +1220,7 @@ func (a *app) answerAdditional(sess *chatSession, text string, now time.Time) (c
 }
 
 // answerChronic накапливает хронические заболевания до «На этом всё».
-func (a *app) answerChronic(sess *chatSession, text string, now time.Time) (chatState, error) {
+func (a *app) answerChronic(sess *chatSession, text string, patientAge int, now time.Time) (chatState, error) {
 	sess.Messages = append(sess.Messages, chatMessage{
 		Role: "user", Step: stepChronic, Text: text, At: now,
 	})
@@ -935,7 +1241,7 @@ func (a *app) answerChronic(sess *chatSession, text string, now time.Time) (chat
 			selected = append(selected, text)
 		}
 		sess.Answers[stepChronic] = encodeHabitList(selected)
-		if len(remainingChronicOptions(sess.Answers)) == 0 {
+		if len(remainingChronicOptions(sess.Answers, patientAge)) == 0 {
 			complete = true
 		}
 	}
@@ -957,20 +1263,20 @@ func (a *app) answerChronic(sess *chatSession, text string, now time.Time) (chat
 }
 
 // answerHabits обрабатывает итеративный выбор привычек:
-// «Нет вредных привычек» и «На этом всё» завершают шаг, остальные ответы копятся.
-func (a *app) answerHabits(sess *chatSession, text string, now time.Time) (chatState, error) {
+// «Нет вредных привычек» / «Нет факторов риска» и «На этом всё» завершают шаг.
+func (a *app) answerHabits(sess *chatSession, text string, patientAge int, now time.Time) (chatState, error) {
 	sess.Messages = append(sess.Messages, chatMessage{
 		Role: "user", Step: stepHabits, Text: text, At: now,
 	})
 
 	complete := false
 	switch text {
-	case habitsNone:
-		sess.Answers[stepHabits] = habitsNone
+	case habitsNone, habitsChildNone:
+		sess.Answers[stepHabits] = text
 		complete = true
 	case habitsDone:
 		if len(sess.habitList()) == 0 {
-			return chatState{}, newAPIError(400, "Сначала выберите хотя бы одну вредную привычку.")
+			return chatState{}, newAPIError(400, "Сначала выберите хотя бы один фактор.")
 		}
 		complete = true
 	default:
@@ -980,8 +1286,8 @@ func (a *app) answerHabits(sess *chatSession, text string, now time.Time) (chatS
 		}
 		sess.Answers[stepHabits] = encodeHabitList(habits)
 
-		// Все атомарные факторы выбраны — дальше идти некуда, завершаем цикл.
-		if len(remainingHabitOptions(habits)) == 0 {
+		// Все доступные для возраста факторы выбраны — завершаем цикл.
+		if len(remainingHabitOptions(habits, patientAge)) == 0 {
 			complete = true
 		}
 	}
@@ -992,8 +1298,12 @@ func (a *app) answerHabits(sess *chatSession, text string, now time.Time) (chatS
 		spec, _ := findStep(sess.steps(), stepPaymentType)
 		sess.Messages = append(sess.Messages, botMessage(stepPaymentType, spec.Question))
 	} else {
-		// Остаёмся на шаге и предлагаем добавить ещё одну привычку.
-		sess.Messages = append(sess.Messages, botMessage(stepHabits, habitsContinueQuestion))
+		// Остаёмся на шаге и предлагаем добавить ещё один фактор.
+		question := habitsContinueQuestion
+		if patientAge < 12 {
+			question = habitsChildContinueQuestion
+		}
+		sess.Messages = append(sess.Messages, botMessage(stepHabits, question))
 	}
 
 	if err := a.store.saveSession(sess); err != nil {
@@ -1061,7 +1371,7 @@ func isBasicComplaintStep(step string) bool {
 }
 
 // shouldAskClarification: уточнение запрашивается после последнего базового вопроса
-// (у температуры шаг выраженности пропущен, поэтому триггер — давность).
+// (у температуры шаг выраженности пропущен, поэтому якорь — давность).
 func shouldAskClarification(sess *chatSession) bool {
 	switch sess.CurrentStep {
 	case stepComplaintSeverity:
@@ -1125,13 +1435,14 @@ func remainingAdditionalOptions(answers map[string]string) []string {
 	return remaining
 }
 
-// chronicStep — цикл добора хронических заболеваний.
-func chronicStep(answers map[string]string) stepSpec {
+// chronicStep — цикл добора хронических заболеваний; набор зависит от возраста.
+func chronicStep(patientAge int, answers map[string]string) stepSpec {
+	factors := chronicFactorsForAge(patientAge)
 	question := "Есть ли у вас хронические заболевания?"
-	options := chronicOptions
+	options := append([]string{chronicNone}, factors...)
 	if len(parseListAnswer(answers[stepChronic])) > 0 {
 		question = "Есть ли ещё хронические заболевания?"
-		options = append([]string{chronicDone}, remainingChronicOptions(answers)...)
+		options = append([]string{chronicDone}, remainingChronicOptions(answers, patientAge)...)
 	}
 	return stepSpec{
 		ID:            stepChronic,
@@ -1142,10 +1453,18 @@ func chronicStep(answers map[string]string) stepSpec {
 	}
 }
 
-func remainingChronicOptions(answers map[string]string) []string {
+func chronicFactorsForAge(patientAge int) []string {
+	if patientAge < 12 {
+		return chronicFactorsChild
+	}
+	return chronicFactorsAdult
+}
+
+func remainingChronicOptions(answers map[string]string, patientAge int) []string {
 	selected := parseListAnswer(answers[stepChronic])
-	remaining := make([]string, 0, len(chronicFactors))
-	for _, factor := range chronicFactors {
+	factors := chronicFactorsForAge(patientAge)
+	remaining := make([]string, 0, len(factors))
+	for _, factor := range factors {
 		if !containsString(selected, factor) {
 			remaining = append(remaining, factor)
 		}
@@ -1267,7 +1586,8 @@ func (a *app) backToPrevious(sess *chatSession) (chatState, error) {
 	// Возврат из payment_type в цикл привычек: выбранные привычки сохраняем.
 	if target == stepHabits {
 		sess.CurrentStep = stepHabits
-		if strings.TrimSpace(sess.Answers[stepHabits]) == habitsNone {
+		if strings.TrimSpace(sess.Answers[stepHabits]) == habitsNone ||
+			strings.TrimSpace(sess.Answers[stepHabits]) == habitsChildNone {
 			delete(sess.Answers, stepHabits)
 		}
 		sess.Messages = trimHabitsReturn(sess.Messages)

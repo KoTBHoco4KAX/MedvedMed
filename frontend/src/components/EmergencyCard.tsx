@@ -9,7 +9,7 @@ export function EmergencyCard({ reason, instruction, onRestart }: EmergencyCardP
     <article data-card="emergency" className="rounded-2xl border-2 border-red-600 bg-white p-5" role="alert">
       <h2 className="text-lg leading-snug font-semibold text-red-700">🚨 Требуется срочная медицинская помощь</h2>
 
-      <p className="mt-3 text-[14px] leading-relaxed text-ink">{reason}</p>
+      <p className="mt-3 whitespace-pre-line text-[14px] leading-relaxed text-ink">{reason}</p>
       <p className="mt-3 text-[14px] leading-relaxed font-semibold text-ink">{instruction}</p>
       <p className="mt-2 text-[13px] leading-relaxed text-muted">
         Не ждите окончания опроса — помощь нужна сейчас. Не оставайтесь один и не занимайтесь самолечением.

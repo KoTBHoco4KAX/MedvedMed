@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { FinalCard } from '../types'
 import { urgencyEmoji, urgencyLabel, urgencyTextClass, urgencyTone } from '../lib/format'
 
@@ -6,9 +7,68 @@ type ResultCardProps = {
   onRestart: () => void
 }
 
+function summaryText(card: FinalCard): string {
+  return [
+    'Рекомендация МедВед',
+    '',
+    `Врач: ${card.specialty}`,
+    `Срочность: ${urgencyLabel(card.urgency)}`,
+    `Куда обратиться: ${card.place}`,
+    '',
+    'Обоснование и анамнез:',
+    card.reasoning,
+    '',
+    card.preparationTips,
+  ].join('\n')
+}
+
+function legacyCopy(text: string): boolean {
+  const area = document.createElement('textarea')
+  area.value = text
+  area.setAttribute('readonly', '')
+  area.style.position = 'fixed'
+  area.style.top = '-1000px'
+  area.style.opacity = '0'
+  document.body.appendChild(area)
+  area.focus()
+  area.select()
+  try {
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    area.remove()
+  }
+}
+
 export function ResultCard({ card, onRestart }: ResultCardProps) {
+  const [notice, setNotice] = useState('')
   const tone = urgencyTone(card.urgency)
   const emergency = tone === 'emergency'
+
+  const copySummary = () => {
+    const text = summaryText(card)
+    setNotice('Сводка скопирована в буфер — откройте чат с врачом в MAX и вставьте')
+    const legacyCopied = legacyCopy(text)
+
+    if (navigator.clipboard !== undefined) {
+      void navigator.clipboard.writeText(text).catch(() => {
+        if (!legacyCopied) legacyCopy(text)
+      })
+    }
+  }
+
+  const downloadMemo = () => {
+    const blob = new Blob([summaryText(card)], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'MedVed_pamyatka.txt'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  }
 
   return (
     <article
@@ -43,7 +103,7 @@ export function ResultCard({ card, onRestart }: ResultCardProps) {
       <Section title="По оплате (ОМС/ДМС/платно)" text={card.paymentNote} />
 
       <div className="my-4 h-px bg-line" aria-hidden />
-      <Section title="Что подготовить к приёму" text={card.preparationTips} />
+      <Section title="Что делать и что подготовить" text={card.preparationTips} />
 
       <p className="mt-5 text-[13px] leading-relaxed font-medium text-amber-800">
         ⚠️ При ухудшении состояния немедленно вызывайте скорую помощь (103/112)
@@ -66,10 +126,37 @@ export function ResultCard({ card, onRestart }: ResultCardProps) {
         </div>
       )}
 
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={copySummary}
+          className="flex min-h-11 items-center justify-center rounded-xl bg-brand px-2 py-2 text-[13px] font-medium text-white transition-colors hover:bg-brand-hover"
+        >
+          Скопировать сводку
+        </button>
+        <button
+          type="button"
+          onClick={downloadMemo}
+          className="flex min-h-11 items-center justify-center rounded-xl border border-[#D1D5DB] bg-white px-2 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-soft"
+        >
+          Скачать памятку
+        </button>
+      </div>
+
+      {notice !== '' && (
+        <p
+          className="mt-3 rounded-xl bg-emerald-50 px-3 py-2 text-[13px] leading-relaxed font-medium text-emerald-800"
+          role="status"
+          aria-live="polite"
+        >
+          {notice}
+        </p>
+      )}
+
       <button
         type="button"
         onClick={onRestart}
-        className="mt-4 h-11 w-full rounded-xl bg-brand text-[15px] font-medium text-white transition-colors hover:bg-brand-hover"
+        className="mt-3 h-11 w-full rounded-xl bg-brand text-[15px] font-medium text-white transition-colors hover:bg-brand-hover"
       >
         Пройти опрос заново
       </button>
