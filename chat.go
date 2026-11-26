@@ -34,6 +34,13 @@ func (a *app) requireSession(w http.ResponseWriter, r *http.Request) (*chatSessi
 		return nil, false
 	}
 
+	// В DEV_MODE не подхватываем старые реальные сессии MAX:
+	// иначе в браузере остаётся прежний пол/возраст и dev-настройки не работают.
+	if a.cfg.DevMode && sess.CoreUserID != devUserID {
+		writeJSONError(w, http.StatusUnauthorized, "DEV_MODE: используется тестовый пользователь. Обновите страницу.")
+		return nil, false
+	}
+
 	// Сессии, сохранённые до переработки шагов, могут стоять на удалённом шаге:
 	// в этом случае начинаем опрос заново, чтобы FSM не застряла.
 	if !sess.IsEmergency {

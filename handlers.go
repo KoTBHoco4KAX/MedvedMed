@@ -14,8 +14,8 @@ import (
 const (
 	devUserID   = "dev-1"
 	devUserName = "Богдан"
-	devUserAge  = 18
-	devUserSex  = 1
+	devUserAge  = 30
+	devUserSex  = 2
 )
 
 type authRequest struct {
@@ -64,14 +64,17 @@ func (a *app) handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	token := strings.TrimSpace(payload.Token)
 
-	// Пустой токен: в dev-режиме сразу отдаём мокового пользователя,
-	// иначе — понятная ошибка «откройте сервис через бота».
-	if token == "" {
-		if !a.cfg.DevMode {
-			writeJSONError(w, http.StatusUnauthorized, "Токен не передан. Откройте сервис через бота в MAX.")
-			return
-		}
+	// В DEV_MODE всегда работаем с моковым пользователем, даже если в URL
+	// остался реальный token MAX. Иначе devUserSex/devUserAge не применяются
+	// и в браузере открывается чужая сохранённая сессия.
+	if a.cfg.DevMode {
 		a.issueSession(w, devUserID, devUserName, devUserAge, devUserSex)
+		return
+	}
+
+	// Боевой режим: пустой токен — это не открытие из бота.
+	if token == "" {
+		writeJSONError(w, http.StatusUnauthorized, "Токен не передан. Откройте сервис через бота в MAX.")
 		return
 	}
 
@@ -133,6 +136,11 @@ func (a *app) handleMe(w http.ResponseWriter, r *http.Request) {
 		}
 		log.Printf("me: %v", err)
 		writeJSONError(w, http.StatusInternalServerError, "не удалось загрузить сессию")
+		return
+	}
+
+	if a.cfg.DevMode && sess.CoreUserID != devUserID {
+		writeJSONError(w, http.StatusUnauthorized, "DEV_MODE: используется тестовый пользователь. Обновите страницу.")
 		return
 	}
 
