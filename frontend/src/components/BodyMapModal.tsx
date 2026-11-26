@@ -265,7 +265,7 @@ export function BodyMapModal({ open, sex, onClose, onSelect }: BodyMapModalProps
               🧍 Где беспокоит?
             </h2>
             <p className="mt-1 text-[13px] leading-relaxed text-muted">
-              Нажмите на зону тела или выберите из списка.
+              Нажмите на нужную зону тела.
             </p>
           </div>
           <button
@@ -347,19 +347,6 @@ export function BodyMapModal({ open, sex, onClose, onSelect }: BodyMapModalProps
               </g>
             ))}
           </svg>
-        </div>
-
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          {zones.map((zone) => (
-            <button
-              key={`${side}-list-${zone.label}`}
-              type="button"
-              onClick={() => onSelect(zone.label)}
-              className="min-h-10 rounded-xl border border-[#D1D5DB] bg-white px-2 py-2 text-left text-[12px] leading-snug font-medium text-ink transition-colors hover:bg-soft"
-            >
-              {zone.label}
-            </button>
-          ))}
         </div>
       </section>
     </div>

@@ -1,13 +1,36 @@
+# Секреты и локальная конфигурация
 .env
+.env.*
+!.env.example
+
+# Локальные данные и логи
 data/
+*.log
+logs/
 *.db
 *.db-shm
 *.db-wal
+*.sqlite
+*.sqlite3
+
+# Ключи и сертификаты
+*.pem
+*.key
+secrets/
+
+# Сборка фронтенда и зависимости
 frontend/node_modules
 frontend/dist
+
+# Локальные бинарники
 server
 server.exe
 medbot-server
 medbot-server.exe
 medved-triage
 medved-triage.exe
+
+# Служебные файлы ОС/IDE
+.DS_Store
+.idea/
+.vscode/

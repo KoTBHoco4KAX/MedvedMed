@@ -27,6 +27,7 @@ type authResponse struct {
 	FirstName    string `json:"firstName"`
 	Age          int    `json:"age"`
 	Sex          int    `json:"sex"`
+	PublicURL    string `json:"publicUrl,omitempty"`
 }
 
 type meResponse struct {
@@ -34,7 +35,18 @@ type meResponse struct {
 	FirstName string    `json:"firstName"`
 	Age       int       `json:"age"`
 	Sex       int       `json:"sex"`
+	PublicURL string    `json:"publicUrl,omitempty"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// handleHealth используется Docker healthcheck: не требует авторизации.
+func (a *app) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		writeJSONError(w, http.StatusMethodNotAllowed, "используйте GET /api/health")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
 func (a *app) handleAuth(w http.ResponseWriter, r *http.Request) {
@@ -95,6 +107,7 @@ func (a *app) issueSession(w http.ResponseWriter, coreUserID, firstName string, 
 		FirstName:    sess.FirstName,
 		Age:          sess.Age,
 		Sex:          sess.Sex,
+		PublicURL:    a.cfg.PublicURL,
 	})
 }
 
@@ -128,6 +141,7 @@ func (a *app) handleMe(w http.ResponseWriter, r *http.Request) {
 		FirstName: sess.FirstName,
 		Age:       sess.Age,
 		Sex:       sess.Sex,
+		PublicURL: a.cfg.PublicURL,
 		CreatedAt: sess.UpdatedAt,
 	})
 }

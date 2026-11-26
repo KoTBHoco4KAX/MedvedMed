@@ -95,36 +95,69 @@ Vite поднимается на http://127.0.0.1:5173 и проксирует `
 
 Требуются Docker Engine и Docker Compose v2.
 
-Фронтенд и Go-бинарник собираются внутри образа, отдельно запускать `pnpm build` не нужно.
+Фронтенд и Go-бинарник собираются внутри образа, отдельно запускать `pnpm build` не нужно. Docker сам скачает официальный образ `yuccastream/tuna:latest`, запустит Tuna рядом с приложением и авторизует её API-ключом из `.env`.
 
-1. Создайте `.env` в корне проекта. Compose читает его через `env_file`, поэтому файл должен существовать:
-
-   ```env
-   PORT=8080
-   DEV_MODE=true
-   DEEPSEEK_API_KEY=ваш_ключ
-   CORE_URL=
-   CORE_SERVICE_TOKEN=
-   ```
-
-   Для работы через MAX Core укажите `DEV_MODE=false`, `CORE_URL` и `CORE_SERVICE_TOKEN`.
-
-2. Соберите и запустите контейнер:
+1. Создайте `.env` из безопасной заглушки:
 
    ```powershell
-   docker compose build
-   docker compose up -d
+   Copy-Item .env.example .env
    ```
 
-3. Откройте http://127.0.0.1:8080.
+2. Заполните в `.env`:
+
+   ```env
+   TUNA_DOMAIN=medvedmed.ru
+   TUNA_API_KEY=tak_your_tuna_api_key_here
+   PUBLIC_URL=https://medvedmed.ru
+   DEEPSEEK_API_KEY=sk-your-deepseek-api-key-here
+   CORE_URL=https://core.example.max.ru
+   CORE_SERVICE_TOKEN=your-core-service-token-here
+   ```
+
+   `TUNA_API_KEY` создаётся в [личном кабинете Tuna](https://my.tuna.am/api_keys?lang=ru) с набором прав «Для туннелей». Браузерный `tuna login` внутри контейнера невозможен — именно API-ключ заменяет вход в аккаунт.
+
+   В `docker-compose.yml` ключ уже передаётся как переменная окружения `TUNA_API_KEY`; вписывать его в `command` не нужно. В команде используется адрес `medbot:8080` — это имя сервиса и внутренний порт Docker, а не `localhost:8080`.
+
+   Если `PUBLIC_URL` не задан, приложение построит его из `https://${TUNA_DOMAIN}`.
+
+3. Соберите и запустите:
+
+   ```powershell
+   docker compose up -d --build
+   ```
+
+   Docker:
+   - соберёт `medbot`;
+   - скачает `yuccastream/tuna:latest`, если образа ещё нет;
+   - дождётся healthcheck приложения;
+   - запустит `tuna http medbot:8080 --domain=${TUNA_DOMAIN}`;
+   - авторизует Tuna через `TUNA_API_KEY`.
+
+4. Проверьте:
+
+   - локально: http://127.0.0.1:8080;
+   - публично: `https://medvedmed.ru`;
+   - healthcheck: `GET /api/health`.
 
 Полезные команды:
 
 ```powershell
-docker compose ps                 # статус
-docker compose logs -f medbot     # логи
-docker compose down               # остановить и удалить контейнер
+docker compose ps                    # app + tuna
+docker compose logs -f medbot        # логи приложения
+docker compose logs -f tuna          # логи Tuna, ищите строку Forwarding/url
+docker compose down                  # остановить оба контейнера
 ```
+
+### Если Tuna уже установлена на хосте
+
+Можно не запускать Tuna-контейнер, а поднять только приложение:
+
+```powershell
+docker compose up -d medbot
+tuna http 8080 --domain=medvedmed.ru
+```
+
+Порт `8080` опубликован только на `127.0.0.1`, поэтому локальная Tuna его увидит. Для автоматической установки/входа на Windows есть `.\scripts\tuna-host.ps1 -Domain medvedmed.ru`.
 
 Данные SQLite лежат в `./data/medbot.db` на хосте: эта папка подключена к `/app/data` и переживает перезапуск контейнера. Путь задаётся в `docker-compose.yml` через `DB_PATH=/app/data/medbot.db`.
 
@@ -205,11 +238,15 @@ curl.exe -s -X POST http://127.0.0.1:8080/api/chat/answer ^
 | --- | --- | --- |
 | `PORT` | `8080` | порт HTTP-сервера |
 | `DEV_MODE` | `false` | моковый пользователь без Core |
+| `PUBLIC_URL` | из `TUNA_DOMAIN` | публичный URL мини-приложения |
+| `TUNA_DOMAIN` | — | домен туннеля Tuna без схемы |
+| `TUNA_API_KEY` | — | API-ключ Tuna |
 | `CORE_URL` | — | база Core API |
 | `CORE_SERVICE_TOKEN` | — | Bearer-токен сервиса для Core |
 | `DB_PATH` | `./medbot.db` | файл SQLite (WAL) |
 | `DEEPSEEK_API_KEY` | — | ключ DeepSeek; пустой — только локальные правила |
 | `STATIC_DIR` | `./frontend/dist` | каталог собранного фронтенда |
+| `MAX_BOT_TOKEN` | — | токен бота MAX для настройки мини-приложения |
 
 ## Что учтено
 

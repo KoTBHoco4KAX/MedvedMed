@@ -1,11 +1,40 @@
 services:
   medbot:
-    build: .
-    ports:
-      - "8080:8080"
-    env_file: .env
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
     environment:
+      PORT: "8080"
+      # Внутри контейнера статика и БД лежат по этим путям.
+      STATIC_DIR: /app/frontend/dist
       DB_PATH: /app/data/medbot.db
+      # Если PUBLIC_URL не задан, приложение само построит https://${TUNA_DOMAIN}.
+      PUBLIC_URL: ${PUBLIC_URL:-}
+      TUNA_DOMAIN: ${TUNA_DOMAIN:-}
+    ports:
+      # Наружу приложение публикует Tuna; порт оставлен только для локальной проверки.
+      - "127.0.0.1:8080:8080"
     volumes:
       - ./data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  tuna:
+    # Docker сам скачает официальный образ Tuna при docker compose up.
+    image: yuccastream/tuna:latest
     restart: unless-stopped
+    depends_on:
+      medbot:
+        condition: service_healthy
+    command: http medbot:8080 --domain=${TUNA_DOMAIN}
+    environment:
+      # Tuna читает ключ из окружения. Не нужно писать его в command.
+      TUNA_API_KEY: ${TUNA_API_KEY}
+      TUNA_FORCE_IPV4: "1"

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -21,6 +22,7 @@ type config struct {
 	StaticDir        string
 	DBPath           string
 	DeepSeekAPIKey   string
+	PublicURL        string
 }
 
 type app struct {
@@ -59,6 +61,7 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/health", a.handleHealth)
 	mux.HandleFunc("/api/auth", a.handleAuth)
 	mux.HandleFunc("/api/me", a.handleMe)
 	mux.HandleFunc("/api/chat/state", a.handleChatState)
@@ -78,8 +81,8 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("МедВед: сервер слушает http://127.0.0.1:%s (DEV_MODE=%t, БД: %s, статика: %s)",
-			cfg.Port, cfg.DevMode, cfg.DBPath, cfg.StaticDir)
+		log.Printf("МедВед: сервер слушает http://127.0.0.1:%s (DEV_MODE=%t, БД: %s, статика: %s, public: %s)",
+			cfg.Port, cfg.DevMode, cfg.DBPath, cfg.StaticDir, cfg.PublicURL)
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("сервер остановлен: %v", err)
 		}
@@ -98,15 +101,33 @@ func main() {
 }
 
 func loadConfig() config {
+	port := envOr("PORT", "8080")
 	return config{
-		Port:             envOr("PORT", "8080"),
+		Port:             port,
 		DevMode:          isTrue(os.Getenv("DEV_MODE")),
 		CoreURL:          trimTrailingSlash(os.Getenv("CORE_URL")),
 		CoreServiceToken: os.Getenv("CORE_SERVICE_TOKEN"),
 		StaticDir:        envOr("STATIC_DIR", "./frontend/dist"),
 		DBPath:           envOr("DB_PATH", "./medbot.db"),
 		DeepSeekAPIKey:   os.Getenv("DEEPSEEK_API_KEY"),
+		PublicURL:        resolvePublicURL(port),
 	}
+}
+
+// resolvePublicURL берёт PUBLIC_URL, иначе строит адрес из TUNA_DOMAIN.
+// Никаких доменов в коде: для локального запуска остаётся localhost.
+func resolvePublicURL(port string) string {
+	if value := trimTrailingSlash(strings.TrimSpace(os.Getenv("PUBLIC_URL"))); value != "" {
+		return value
+	}
+	domain := trimTrailingSlash(strings.TrimSpace(os.Getenv("TUNA_DOMAIN")))
+	if domain != "" {
+		if strings.HasPrefix(domain, "http://") || strings.HasPrefix(domain, "https://") {
+			return domain
+		}
+		return "https://" + domain
+	}
+	return "http://127.0.0.1:" + port
 }
 
 func envOr(key, fallback string) string {
