@@ -1,4 +1,4 @@
-import { greeting } from '../lib/format'
+import { greeting } from '../../lib/format'
 
 type HeaderProps = {
   firstName: string

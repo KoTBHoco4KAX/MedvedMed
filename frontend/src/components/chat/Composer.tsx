@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { optionEmoji } from '../lib/format'
+import { optionEmoji } from '../../lib/format'
 
 type ComposerProps = {
   options: string[]

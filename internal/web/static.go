@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"log"
@@ -11,7 +11,7 @@ import (
 
 // spaHandler раздаёт собранный фронтенд из dist и делает SPA-fallback на index.html.
 // Важно: X-Frame-Options не выставляется — мини-апп MAX открывает сервис в iframe.
-func spaHandler(dist string) http.Handler {
+func SPAHandler(dist string) http.Handler {
 	dist = filepath.Clean(dist)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

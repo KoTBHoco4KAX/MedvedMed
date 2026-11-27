@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { HistoryItem } from '../types'
-import { formatDateTime, urgencyLabel, urgencyTextClass, urgencyTone } from '../lib/format'
+import type { HistoryItem } from '../../types'
+import { formatDateTime, urgencyLabel, urgencyTextClass, urgencyTone } from '../../lib/format'
 
 type HistoryPanelProps = {
   items: HistoryItem[] | null
