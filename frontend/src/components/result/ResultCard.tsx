@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { FinalCard } from '../types'
-import { urgencyEmoji, urgencyLabel, urgencyTextClass, urgencyTone } from '../lib/format'
+import type { FinalCard } from '../../types'
+import { urgencyEmoji, urgencyLabel, urgencyTextClass, urgencyTone } from '../../lib/format'
 
 type ResultCardProps = {
   card: FinalCard

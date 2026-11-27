@@ -5,21 +5,29 @@ Go-бэкенд: авторизация через MAX Core, опрос о са�
 SQLite-история консультаций. Фронтенд — Vite + React + TypeScript + Tailwind CSS.
 
 Полное дерево шагов, условий ветвления и всех кнопок — в `DIALOG_TREE.md`.
+Архитектурные решения и структура — в [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Структура
 
-```
-main.go        конфиг из .env, маршруты, graceful shutdown
-handlers.go    POST /api/auth, GET /api/me
-core.go        Core API: токен MAX -> пользователь, возраст, маппинг 401/403/404
-db.go          SQLite (modernc.org/sqlite, WAL), схема sessions/consultations
-sessions.go    модель сессии и ленты сообщений, генерация sessionToken
-emergency.go   детектор 10 критических симптомов (до вызова LLM)
-fsm.go         шаги опроса, прогресс, ответ/возврат/сброс, сборка состояния
-llm.go         DeepSeek (json_object, таймаут 20 c) + локальный фоллбэк карточки
-chat.go        /api/chat/state, /api/chat/answer, /api/chat/back, /api/chat/reset, /api/history
-static.go      раздача frontend/dist + SPA-fallback на index.html
-frontend/      мобильный UI: Vite + React + TS + Tailwind в стиле «Медведь онлайн»
+```text
+main.go                       тонкая точка входа (go run .)
+internal/config/              .env, PUBLIC_URL, TUNA_DOMAIN
+internal/web/                 статика и HTTP-логирование
+internal/medved/app.go        composition root: БД, сервер, graceful shutdown
+internal/medved/config_compat.go  алиас конфигурации и совместимость пакета
+internal/medved/http_handlers.go  /api/auth, /api/me, /api/health
+internal/medved/core_client.go    Core API: токен MAX -> пользователь
+internal/medved/store.go          SQLite (modernc.org/sqlite, WAL)
+internal/medved/session.go        модель сессии и ленты сообщений
+internal/medved/emergency.go      детектор критических симптомов
+internal/medved/fsm.go            шаги опроса, прогресс, ответ/возврат/сброс
+internal/medved/llm.go            DeepSeek + локальный фоллбэк карточки
+internal/medved/chat_handlers.go  чат-эндпоинты и история
+frontend/src/components/chat/     Composer, MessageBubble
+frontend/src/components/layout/   Header, прогресс
+frontend/src/components/modals/    карта тела, экстренная памятка
+frontend/src/components/result/    ResultCard, HistoryPanel, EmergencyCard
+frontend/                     мобильный UI: Vite + React + TS + Tailwind
 ```
 
 ## Интерфейс
